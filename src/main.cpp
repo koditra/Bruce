@@ -1,5 +1,8 @@
 #include "core/main_menu.h"
 #include <globals.h>
+#if defined(USE_M5_UNIFIED_AUDIO) && __has_include(<M5Unified.h>)
+#include <M5Unified.h>
+#endif
 
 #include "core/bus_HAL.h"
 #include "core/powerSave.h"
@@ -257,20 +260,67 @@ void begin_tft() {
     setBrightness(bruceConfig.bright, false);
 }
 
+static void drawAstraTrident(int centerX, int centerY, int scale) {
+    const uint16_t saffron = bruceConfig.priColor;
+    const int shaftBottom = centerY + 39 * scale / 10;
+    const int shaftTop = centerY - 14 * scale / 10;
+    const int centerTipY = centerY - 38 * scale / 10;
+    const int shaftWidth = max(1, (4 * scale + 5) / 10);
+    const int forkLineWidth = max(1, (3 * scale + 5) / 10);
+
+    tft.drawWideLine(centerX, shaftTop, centerX, shaftBottom, shaftWidth, saffron);
+    for (int side = -1; side <= 1; side += 2) {
+        const int x0 = centerX;
+        const int y0 = shaftTop;
+        const int x1 = centerX + side * 6 * scale / 10;
+        const int y1 = centerY - 10 * scale / 10;
+        const int x2 = centerX + side * 11 * scale / 10;
+        const int y2 = centerY - 12 * scale / 10;
+        const int x3 = centerX + side * 14 * scale / 10;
+        const int y3 = centerY - 17 * scale / 10;
+        const int x4 = centerX + side * 15 * scale / 10;
+        const int y4 = centerY - 23 * scale / 10;
+        const int x5 = centerX + side * 14 * scale / 10;
+        const int y5 = centerY - 28 * scale / 10;
+        const int x6 = centerX + side * 12 * scale / 10;
+        const int y6 = centerY - 32 * scale / 10;
+
+        tft.drawWideLine(x0, y0, x1, y1, forkLineWidth, saffron);
+        tft.drawWideLine(x1, y1, x2, y2, forkLineWidth, saffron);
+        tft.drawWideLine(x2, y2, x3, y3, forkLineWidth, saffron);
+        tft.drawWideLine(x3, y3, x4, y4, forkLineWidth, saffron);
+        tft.drawWideLine(x4, y4, x5, y5, forkLineWidth, saffron);
+        tft.drawWideLine(x5, y5, x6, y6, forkLineWidth, saffron);
+    }
+    tft.fillTriangle(
+        centerX, centerTipY, centerX - 5 * scale / 10, shaftTop, centerX + 5 * scale / 10, shaftTop, saffron
+    );
+    tft.fillCircle(centerX, centerY - 7 * scale / 10, max(1, scale / 5), bruceConfig.secColor);
+    tft.drawWideLine(
+        centerX - 7 * scale / 10, centerY + 35 * scale / 10, centerX + 7 * scale / 10,
+        centerY + 35 * scale / 10, shaftWidth, saffron
+    );
+    tft.drawWideLine(
+        centerX - 4 * scale / 10, centerY + 27 * scale / 10, centerX + 4 * scale / 10,
+        centerY + 27 * scale / 10, forkLineWidth, saffron
+    );
+}
+
 /*********************************************************************
  **  Function: boot_screen
  **  Draw boot screen
  *********************************************************************/
 void boot_screen() {
+    tft.fillScreen(bruceConfig.bgColor);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
     tft.setTextSize(FM);
     tft.drawPixel(0, 0, bruceConfig.bgColor);
-    tft.drawCentreString("Bruce", tftWidth / 2, 10, 1);
-    tft.setTextSize(FP);
-    tft.drawCentreString(BRUCE_VERSION, tftWidth / 2, 25, 1);
+    tft.drawCentreString("ASTRA", tftWidth / 2, 10, 1);
+    tft.setTextSize(ASTRA_FONT_SMALL);
+    tft.drawCentreString("ASTRA " + String(BRUCE_VERSION), tftWidth / 2, 25, 1);
     tft.setTextSize(FM);
     tft.drawCentreString(
-        "PREDATORY FIRMWARE", tftWidth / 2, tftHeight + 2, 1
+        "ASTRA FIRMWARE", tftWidth / 2, tftHeight + 2, 1
     ); // will draw outside the screen on non touch devices
 }
 
@@ -292,6 +342,8 @@ void boot_screen_anim() {
     else if (boot_img == 0 && LittleFS.exists("/boot.gif")) boot_img = 4;
     if (bruceConfig.theme.boot_img) boot_img = 5; // override others
 
+    int previousScale = 0;
+    bool finalLogoDrawn = false;
     tft.drawPixel(0, 0, 0);       // Forces back communication with TFT, to avoid ghosting
                                   // Start image loop
     while (millis() < i + 7000) { // boot image lasts for 5 secs
@@ -327,31 +379,22 @@ void boot_screen_anim() {
             drawn = true;
         }
 #if !defined(LITE_VERSION)
-        if (!boot_img && (millis() - i > 2200) && (millis() - i) < 2700)
-            tft.drawRect(2 * tftWidth / 3, tftHeight / 2, 2, 2, bruceConfig.priColor);
-        if (!boot_img && (millis() - i > 2700) && (millis() - i) < 2900)
-            tft.fillRect(0, 45, tftWidth, tftHeight - 45, bruceConfig.bgColor);
-        if (!boot_img && (millis() - i > 2900) && (millis() - i) < 3400)
-            tft.drawXBitmap(
-                2 * tftWidth / 3 - 30,
-                5 + tftHeight / 2,
-                bruce_small_bits,
-                bruce_small_width,
-                bruce_small_height,
-                bruceConfig.bgColor,
-                bruceConfig.priColor
-            );
-        if (!boot_img && (millis() - i > 3400) && (millis() - i) < 3600) tft.fillScreen(bruceConfig.bgColor);
-        if (!boot_img && (millis() - i > 3600))
-            tft.drawXBitmap(
-                (tftWidth - 238) / 2,
-                (tftHeight - 133) / 2,
-                bits,
-                bits_width,
-                bits_height,
-                bruceConfig.bgColor,
-                bruceConfig.priColor
-            );
+        const unsigned long elapsed = millis() - i;
+        if (!boot_img && elapsed >= 2000 && elapsed < 3400) {
+            int scale = 4 + min(6, (int)((elapsed - 2000) / 200));
+            if (scale != previousScale) {
+                if (previousScale == 0) tft.fillScreen(bruceConfig.bgColor);
+                else tft.fillRect(tftWidth / 2 - 30, tftHeight / 2 - 50, 60, 105, bruceConfig.bgColor);
+                drawAstraTrident(tftWidth / 2, tftHeight / 2, scale);
+                previousScale = scale;
+            }
+        } else if (elapsed >= 3400) {
+            if (!boot_img && !finalLogoDrawn) {
+                tft.fillRect(tftWidth / 2 - 30, tftHeight / 2 - 50, 60, 105, bruceConfig.bgColor);
+                drawAstraTrident(tftWidth / 2, tftHeight / 2, 10);
+                finalLogoDrawn = true;
+            }
+        }
 #endif
         if (check(AnyKeyPress)) // If any key or M5 key is pressed, it'll jump the boot screen
         {
@@ -423,12 +466,11 @@ void startup_sound() {
     if (bruceConfig.soundEnabled == 0) return; // if sound is disabled, do not play sound
 #if !defined(LITE_VERSION)
 #if defined(BUZZ_PIN)
-    // Bip M5 just because it can. Does not bip if splashscreen is bypassed
-    _tone(5000, 50);
-    delay(200);
-    _tone(5000, 50);
-    /*  2fix: menu infinite loop */
+    return;
 #elif defined(HAS_NS4168_SPKR)
+#if defined(USE_M5_UNIFIED_AUDIO)
+    M5.Speaker.setVolume((bruceConfig.soundVolume * 64) / 100);
+#endif
     // play a boot sound
     if (bruceConfig.theme.boot_sound) {
         playAudioFile(bruceConfig.themeFS(), bruceConfig.getThemeItemImg(bruceConfig.theme.paths.boot_sound));
@@ -621,7 +663,7 @@ void loop() {
         "██   ██ ██   ██ ██    ██ ██      ██      \n"
         "██████  ██   ██  ██████   ██████ ███████ \n"
         "                                         \n"
-        "         PREDATORY FIRMWARE\n\n"
+        "            ASTRA FIRMWARE\n\n"
         "Tips: Connect to the WebUI for better experience\n"
         "      Add your network by sending: wifi add ssid password\n\n"
         "At your command:"
