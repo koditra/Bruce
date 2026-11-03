@@ -71,7 +71,7 @@ void selectRecentIrMenu() {
     return;
 }
 
-bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI) {
+bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI, uint16_t interCodeDelayMs) {
     // SPAM all codes of the file
 
     int total_codes = 0;
@@ -142,6 +142,7 @@ bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI) {
                         code.data = rawData;
                         code.frequency = frequency;
                         sendIRCommand(&code, hideDefaultUI);
+                        if (interCodeDelayMs > 0) delay(interCodeDelayMs);
 
                         rawData = "";
                         frequency = 0;
@@ -178,6 +179,7 @@ bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI) {
                     } else if (line.indexOf("#") != -1) { // TODO: also detect EOF
                         IRCode code(protocol, address, command, value, bits);
                         sendIRCommand(&code, hideDefaultUI);
+                        if (interCodeDelayMs > 0) delay(interCodeDelayMs);
 
                         protocol = "";
                         address = "";
@@ -191,11 +193,14 @@ bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI) {
                 }
             }
         }
-        // if user is pushing (holding down) TRIGGER button, stop transmission early
-        if (check(SelPress)) // Pause TV-B-Gone
-        {
+        if (check(EscPress)) {
+            endingEarly = true;
+            break;
+        }
+
+        if (check(SelPress)) {
             while (check(SelPress)) { vTaskDelay(pdMS_TO_TICKS(1)); }
-            if (!hideDefaultUI) { displayTextLine("Paused"); }
+            if (!hideDefaultUI) { displayTextLine("SEL resume, ESC stop"); }
 
             while (!check(SelPress)) { // If Presses Select again, continues
                 if (check(EscPress)) {
@@ -215,7 +220,7 @@ bool txIrFile(FS *fs, const String &filepath, bool hideDefaultUI) {
 
     resetCodesArray();
     digitalWrite(bruceConfigPins.irTx, LED_OFF);
-    return true;
+    return !endingEarly;
 }
 
 void otherIRcodes() {
@@ -604,6 +609,37 @@ bool sendDecodedCommand(String protocol, String value, uint8_t bits, bool hideDe
 }
 
 void sendRawCommand(uint16_t frequency, String rawData, bool hideDefaultUI) {
+    std::vector<uint32_t> dataBuffer;
+    const char *cursor = rawData.c_str();
+    while (*cursor) {
+        while (*cursor == ' ' || *cursor == '\t' || *cursor == '\r' || *cursor == '\n') cursor++;
+        if (!*cursor) break;
+        if (*cursor < '0' || *cursor > '9') {
+            displayError("Invalid raw IR timing.", true);
+            return;
+        }
+
+        char *end = nullptr;
+        const unsigned long long timing = strtoull(cursor, &end, 10);
+        if (end == cursor || timing == 0 || timing > UINT32_MAX) {
+            displayError("Invalid raw IR timing.", true);
+            return;
+        }
+        dataBuffer.push_back(static_cast<uint32_t>(timing));
+        cursor = end;
+    }
+    if (frequency == 0 || dataBuffer.empty()) {
+        displayError("Invalid raw IR data.", true);
+        return;
+    }
+
+    for (size_t i = 0; i < dataBuffer.size(); i += 2) {
+        if (dataBuffer[i] > UINT16_MAX) {
+            displayError("Raw IR mark is too long.", true);
+            return;
+        }
+    }
+
 #ifdef USE_BOOST /// ENABLE 5V OUTPUT
     PPM.enableOTG();
 #endif
@@ -612,37 +648,16 @@ void sendRawCommand(uint16_t frequency, String rawData, bool hideDefaultUI) {
     irsend.begin();
     if (!hideDefaultUI) { displayTextLine("Sending.."); }
 
-    uint16_t dataBufferSize = 1;
-    for (int i = 0; i < rawData.length(); i++) {
-        if (rawData[i] == ' ') dataBufferSize += 1;
-    }
-    uint16_t *dataBuffer = (uint16_t *)malloc((dataBufferSize) * sizeof(uint16_t));
-
-    uint16_t count = 0;
-    // Parse raw data string
-    while (rawData.length() > 0 && count < dataBufferSize) {
-        int delimiterIndex = rawData.indexOf(' ');
-        if (delimiterIndex == -1) { delimiterIndex = rawData.length(); }
-        String dataChunk = rawData.substring(0, delimiterIndex);
-        rawData.remove(0, delimiterIndex + 1);
-        dataBuffer[count++] = (dataChunk.toInt());
-    }
-
-    Serial.println("Parsing raw data complete.");
-    // Serial.println(count);
-    // Serial.println(dataBuffer[count-1]);
-    // Serial.println(dataBuffer[0]);
-
-    // Send raw command
-    irsend.sendRaw(dataBuffer, count, frequency);
-
-    if (bruceConfigPins.irTxRepeats > 0) {
-        for (uint8_t i = 1; i <= bruceConfigPins.irTxRepeats; i++) {
-            irsend.sendRaw(dataBuffer, count, frequency);
+    for (uint16_t repeat = 0; repeat <= bruceConfigPins.irTxRepeats; repeat++) {
+        irsend.enableIROut(frequency);
+        for (size_t i = 0; i < dataBuffer.size(); i++) {
+            if (i & 1) {
+                irsend.space(dataBuffer[i]);
+            } else {
+                irsend.mark(static_cast<uint16_t>(dataBuffer[i]));
+            }
         }
     }
-
-    free(dataBuffer);
 
     Serial.println(
         "Sent Raw Command" + (bruceConfigPins.irTxRepeats > 0
@@ -652,7 +667,7 @@ void sendRawCommand(uint16_t frequency, String rawData, bool hideDefaultUI) {
     digitalWrite(bruceConfigPins.irTx, LED_OFF);
 }
 
-bool chooseCmdIrFile(FS *fs, const String &filepath) {
+bool chooseCmdIrFile(FS *fs, const String &filepath, bool remoteMenu) {
     checkIrTxPin();
     resetCodesArray();
     int total_codes = 0;
@@ -736,7 +751,14 @@ bool chooseCmdIrFile(FS *fs, const String &filepath) {
     int idx = 0;
     while (1) {
         actionTaken = false;
-        idx = loopOptions(options, idx);
+        if (remoteMenu) {
+            String remoteTitle = filepath.substring(filepath.lastIndexOf('/') + 1);
+            remoteTitle.replace('_', ' ');
+            remoteTitle.replace(".ir", "");
+            idx = loopOptions(options, MENU_TYPE_SUBMENU, remoteTitle.c_str(), idx);
+        } else {
+            idx = loopOptions(options, idx);
+        }
 
         if (exit) break;
 

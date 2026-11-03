@@ -33,7 +33,7 @@ boot_bin = build_dir / "bootloader.bin"
 part_bin = build_dir / "partitions.bin"
 app_bin  = build_dir / "firmware.bin"
 
-out_bin  = proj_dir / f"Bruce-{pioenv}.bin"
+out_bin  = proj_dir / f"ASTRA-{pioenv}.bin"
 
 # Esptool from PlatformIO + Python executable
 esptool_pkg = senv.PioPlatform().get_package_dir("tool-esptoolpy")
@@ -66,6 +66,8 @@ def _merge_bins_callback(target, source, env):
     part_csv = proj_dir / part_csv_name if part_csv_name else proj_dir / "partitions.csv"
     ota_size = None
     ota0_offset = None
+    fs_offset = None
+    fs_size = None
     if part_csv.exists():
         with open(part_csv, newline="") as f:
             reader = csv.reader(f)
@@ -83,6 +85,35 @@ def _merge_bins_callback(target, source, env):
                         ota0_offset = int(offset, 0)
                     except ValueError:
                         pass
+                if subtype in ("littlefs", "spiffs") and fs_offset is None:
+                    try:
+                        fs_offset = int(offset, 0)
+                        fs_size = int(size, 0)
+                    except ValueError:
+                        pass
+
+    # ---- Build optional LittleFS image from data/ ----
+    filesystem_args = []
+    data_dir = proj_dir / "data"
+    filesystem_bin = build_dir / "astra-littlefs.bin"
+    if data_dir.exists() and data_dir.is_dir() and fs_offset is not None and fs_size is not None:
+        littlefs_exe = Path(python_exe).parent / "littlefs-python"
+        if littlefs_exe.exists():
+            fs_cmd = " ".join([
+                q(str(littlefs_exe)), "create",
+                "--block-size", "4096",
+                "--fs-size", str(fs_size),
+                q(str(data_dir)), q(str(filesystem_bin)),
+            ])
+            print("[LittleFS] Creating bundled filesystem image")
+            if env.Execute(fs_cmd) != 0:
+                print("[LittleFS] Image creation failed")
+                env.Exit(1)
+            elif filesystem_bin.exists():
+                filesystem_args = [hex(fs_offset), q(filesystem_bin)]
+                print(f"[LittleFS] Bundling {data_dir} at {hex(fs_offset)} ({fs_size} bytes)")
+        else:
+            print("[LittleFS] littlefs-python not found; filesystem image not bundled")
 
     # ---- Firmware size check against test partition ----
     if ota_size:
@@ -106,6 +137,7 @@ def _merge_bins_callback(target, source, env):
         hex(boot_offset), q(boot_bin),
         hex(PART_TABLE_OFFSET), q(part_bin),
         hex(APP_OFFSET), q(app_bin),
+        *filesystem_args,
     ])
 
     print("[merge_bin] Merging binaries:")
