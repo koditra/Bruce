@@ -23,7 +23,7 @@
 
 namespace {
 void displaySmallErrorToast(const String &txt) {
-    constexpr int textSize = FP;
+    constexpr int textSize = ASTRA_FONT_SMALL;
     int boxWidth = txt.length() * LW * textSize + 18;
     if (boxWidth > tftWidth - 20) boxWidth = tftWidth - 20;
     int boxHeight = LH * textSize + 10;
@@ -81,6 +81,14 @@ void TagOMatic::setup() {
     returnToMenu = false;
     set_rfid_module();
 
+#if !defined(LITE_VERSION)
+    if (_initial_state == AMIIBO_LOAD_MODE && bruceConfigPins.rfidModule != ST25R3916_SPI_MODULE &&
+        bruceConfigPins.rfidModule != ST25R3916_I2C_MODULE) {
+        displayError("Amiibo needs ST25R3916", true);
+        return;
+    }
+#endif
+
     if (!_rfid->begin()) {
         displayError("RFID module not found!", true);
         return;
@@ -113,6 +121,8 @@ void TagOMatic::loop() {
             case EMULATE_NDEF_MODE: emulate_ndef_data(); break;
             case ERASE_MODE: erase_card(); break;
             case SAVE_MODE: save_file(); break;
+            case AMIIBO_LOAD_MODE: load_amiibo(); break;
+            case AMIIBO_EMULATE_MODE: emulate_amiibo(); break;
         }
         vTaskDelay(pdMS_TO_TICKS(1));
     }
@@ -175,6 +185,17 @@ void TagOMatic::set_state(RFID_State state) {
             padprintln("");
             break;
         case WRITE_NDEF_MODE: _ndef_created = false; break;
+        case AMIIBO_LOAD_MODE:
+            padprintln("Select a complete NTAG215 dump.");
+            padprintln("Personal dump files only.");
+            padprintln("");
+            break;
+        case AMIIBO_EMULATE_MODE:
+            padprintln("Amiibo dump loaded.");
+            padprintln("Waiting for an NFC reader...");
+            padprintln("Press [BACK] to stop.");
+            padprintln("");
+            break;
         case EMULATE_NDEF_MODE:
             _ndef_created = false;
             // Only content-carrying emulation, no captured/loaded tag identity.
@@ -224,12 +245,15 @@ void TagOMatic::display_banner() {
         case EMULATE_MODE: printSubtitle("EMULATE MODE"); break;
         case EMULATE_NDEF_MODE: printSubtitle("EMULATE NDEF MODE"); break;
         case SAVE_MODE: printSubtitle("SAVE MODE"); break;
+        case AMIIBO_LOAD_MODE: printSubtitle("AMIIBO LOAD"); break;
+        case AMIIBO_EMULATE_MODE: printSubtitle("AMIIBO EMULATE"); break;
     }
 
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     padprintln("");
     tft.setTextColor(getColorVariation(bruceConfig.priColor), bruceConfig.bgColor);
-    padprintln("Press [OK] to change mode.");
+    if (current_state == WRITE_NDEF_MODE) padprintln("Hold tag near NFC reader.");
+    else padprintln("Press [OK] to change mode.");
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
     padprintln("");
 }
@@ -513,17 +537,22 @@ void TagOMatic::write_data() {
 void TagOMatic::write_ndef_data() {
     if (!_ndef_created) {
         create_ndef_message();
+        if (!_ndef_created) {
+            set_state(READ_MODE);
+            return;
+        }
         display_banner();
         dump_ndef_details();
+        padprintln("Press [BACK] to cancel.");
     }
 
     int result = _rfid->write_ndef();
 
     switch (result) {
         case RFIDInterface::TAG_NOT_PRESENT: return; break;
-        case RFIDInterface::TAG_NOT_MATCH: displayError("Tag is not MIFARE Ultralight."); break;
+        case RFIDInterface::TAG_NOT_MATCH: displayError("Not a Type 2 tag."); break;
         case RFIDInterface::SUCCESS: displaySuccess("Tag written successfully."); break;
-        default: displayError("Error writing data to tag."); break;
+        default: displayError("Write failed. Check tag lock."); break;
     }
 
     delayWithReturn(1000);
@@ -685,6 +714,96 @@ void TagOMatic::load_file() {
     } else {
         displayError("Error loading file.", true);
         set_state(READ_MODE);
+    }
+}
+
+void TagOMatic::load_amiibo() {
+    FS *fs;
+    if (!getFsStorage(fs)) {
+        displayError("No storage available.", true);
+        returnToMenu = true;
+        return;
+    }
+
+    String filepath = loopSD(*fs, true, "NFC|RFID", "/BruceRFID");
+    if (filepath.isEmpty()) {
+        returnToMenu = true;
+        return;
+    }
+
+    if (_rfid->loadFromFile(filepath) != RFIDInterface::SUCCESS) {
+        displayError("Could not load Amiibo dump.", true);
+        returnToMenu = true;
+        return;
+    }
+
+#if !defined(LITE_VERSION)
+    ST25R3916 *st25 = static_cast<ST25R3916 *>(_rfid);
+    String uid = _rfid->printableUID.uid;
+    uid.replace(" ", "");
+    String validHex = "0123456789abcdefABCDEF";
+    bool validUid = uid.length() == 14;
+    for (size_t i = 0; validUid && i < uid.length(); i++) {
+        validUid = validHex.indexOf(uid.charAt(i)) >= 0;
+    }
+
+    bool pages[135] = {};
+    int uniquePages = 0;
+    int pos = 0;
+    while (pos < _rfid->strAllPages.length()) {
+        int newline = _rfid->strAllPages.indexOf('\n', pos);
+        if (newline < 0) newline = _rfid->strAllPages.length();
+        String line = _rfid->strAllPages.substring(pos, newline);
+        pos = newline + 1;
+        int page = -1;
+        unsigned int b0, b1, b2, b3;
+        if (sscanf(line.c_str(), "Page %d: %02X %02X %02X %02X", &page, &b0, &b1, &b2, &b3) == 5 &&
+            page >= 0 && page < 135 && !pages[page]) {
+            pages[page] = true;
+            uniquePages++;
+        }
+    }
+
+    String sak = _rfid->printableUID.sak;
+    sak.trim();
+
+    if (_rfid->totalPages != 135 || _rfid->dataPages != 135 || uniquePages != 135 ||
+        !_rfid->pageReadSuccess || !validUid || strtoul(sak.c_str(), nullptr, 16) != 0 ||
+        !st25->ntagHasVersion || st25->ntagVersion[6] != 0x11 || !st25->ntagHasSignature) {
+        displayError("Need a complete NTAG215 dump.", true);
+        returnToMenu = true;
+        return;
+    }
+#endif
+
+    set_state(AMIIBO_EMULATE_MODE);
+}
+
+void TagOMatic::emulate_amiibo() {
+    int result = _rfid->emulate();
+    if (returnToMenu) return;
+
+    switch (result) {
+        case RFIDInterface::SUCCESS:
+            displaySuccess("Reader interaction complete.");
+            delay(400);
+            display_banner();
+            padprintln("Amiibo dump loaded.");
+            padprintln("Waiting for an NFC reader...");
+            padprintln("Press [BACK] to stop.");
+            padprintln("");
+            break;
+        case RFIDInterface::NOT_IMPLEMENTED:
+            displayError("Amiibo emulation unsupported.", true);
+            returnToMenu = true;
+            break;
+        default:
+            displayError("Amiibo emulation failed.", true);
+            display_banner();
+            padprintln("Waiting for an NFC reader...");
+            padprintln("Press [BACK] to stop.");
+            padprintln("");
+            break;
     }
 }
 

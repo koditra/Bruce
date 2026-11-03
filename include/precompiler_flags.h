@@ -66,8 +66,8 @@
 #ifndef LED_OFF             // Infrared LED Off state
   #define LED_OFF 0
 #endif
-#ifndef FP                  // Small Font -> Font Pequena
-  #define FP 1
+#ifndef ASTRA_FONT_SMALL                  // Small Font -> Font Pequena
+  #define ASTRA_FONT_SMALL 1
 #endif
 #ifndef FM                  // Medium Font -> Fonte Media
   #define FM 2

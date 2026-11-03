@@ -97,6 +97,7 @@ extern volatile int tftHeight;
 extern String wifiIP;
 
 extern bool BLEConnected; // inform if BLE is active or not
+extern bool IRMenuActive;
 
 extern bool gpsConnected; // inform if GPS is active or not
 

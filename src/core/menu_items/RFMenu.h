@@ -5,7 +5,7 @@
 
 class RFMenu : public MenuItemInterface {
 public:
-    RFMenu() : MenuItemInterface("RF") {}
+    RFMenu() : MenuItemInterface("Radio / RF") {}
 
     void optionsMenu(void);
     void drawIcon(float scale);

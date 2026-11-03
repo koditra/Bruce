@@ -38,7 +38,7 @@ struct UILayout {
         MARGIN_X = isLarge ? 10 : 5;
         MARGIN_Y = isLarge ? 10 : 5;
         HEADER_HEIGHT = isLarge ? 30 : 22;
-        DISPLAY_HEIGHT = isLarge ? 40 : 30;
+        DISPLAY_HEIGHT = isLarge ? 40 : 32;
         PROGRESS_HEIGHT = isLarge ? 12 : 8;
         CONTROLS_HEIGHT = isLarge ? 70 : 50;
         BUTTON_SIZE = isLarge ? 50 : 36;
@@ -63,8 +63,9 @@ String extractFilename(const String &filepath) {
     int lastSlash = filepath.lastIndexOf('/');
     int lastDot = filepath.lastIndexOf('.');
     String name = filepath.substring(lastSlash + 1);
-    // Remove extension
-    if (lastDot > lastSlash) { name = name.substring(0, lastDot - lastSlash - 1); }
+    int dotInName = name.lastIndexOf('.');
+    if (dotInName >= 0) name = name.substring(0, dotInName);
+    if (name == "Teri_Mitti") name = "Teri Mitti";
     return name;
 }
 
@@ -146,16 +147,15 @@ void drawVectorIcon(int x, int y, int size, IconType icon, uint16_t color) {
 
 // Draw Button container + Icon with padding
 void drawButton(int x, int y, int size, IconType icon, bool selected, bool active) {
-    uint16_t bgColor = TFT_BLACK;
+    uint16_t bgColor = ASTRA_PANEL_COLOR;
     uint16_t iconColor = active ? TFT_WHITE : TFT_DARKGREY;
-    uint16_t borderColor = selected ? bruceConfig.priColor : TFT_DARKGREY;
+    uint16_t borderColor = selected ? bruceConfig.priColor : ASTRA_PANEL_BORDER_COLOR;
 
-    // Highlighted button has colored background
     if (selected) {
-        bgColor = TFT_DARKGREY;
-        iconColor = TFT_WHITE;
+        bgColor = bruceConfig.priColor;
+        iconColor = bruceConfig.bgColor;
         tft.fillRoundRect(x, y, size, size, 6, bgColor);
-        tft.drawRoundRect(x, y, size, size, 6, TFT_YELLOW);
+        tft.drawRoundRect(x, y, size, size, 6, bruceConfig.priColor);
     } else {
         tft.fillRoundRect(x, y, size, size, 6, bgColor);
         tft.drawRoundRect(x, y, size, size, 6, borderColor);
@@ -168,7 +168,7 @@ void drawButton(int x, int y, int size, IconType icon, bool selected, bool activ
 
 // Draw Styled Progress Bar
 void drawProgressBar(int x, int y, int width, int height, unsigned long position, unsigned long duration) {
-    uint16_t barBg = TFT_DARKGREY;
+    uint16_t barBg = ASTRA_PANEL_BORDER_COLOR;
     uint16_t barFill = bruceConfig.priColor;
 
     // Background bar
@@ -199,10 +199,9 @@ bool showVolumeControl(uint8_t &currentVolume) {
 
     auto drawVolumeBar = [&]() {
         // Dark overlay
-        tft.fillRect(BAR_X - 2, BAR_Y - 2, BAR_WIDTH + 4, BAR_HEIGHT + 4, TFT_BLACK);
+        tft.fillRoundRect(BAR_X - 8, BAR_Y - 8, BAR_WIDTH + 16, BAR_HEIGHT + 16, 10, ASTRA_PANEL_COLOR);
 
-        // Container
-        tft.drawRoundRect(BAR_X, BAR_Y, BAR_WIDTH, BAR_HEIGHT, 8, TFT_WHITE);
+        tft.drawRoundRect(BAR_X - 8, BAR_Y - 8, BAR_WIDTH + 16, BAR_HEIGHT + 16, 10, ASTRA_PANEL_BORDER_COLOR);
 
         // Speaker icon at top
         drawVectorIcon(BAR_X + (BAR_WIDTH - 20) / 2, BAR_Y + 10, 20, ICON_VOL, TFT_WHITE);
@@ -213,14 +212,14 @@ bool showVolumeControl(uint8_t &currentVolume) {
         int innerBarX = BAR_X + (BAR_WIDTH - innerBarW) / 2;
         int innerBarY = BAR_Y + 35;
 
-        tft.fillRect(innerBarX, innerBarY, innerBarW, innerBarH, TFT_DARKGREY);
+        tft.fillRect(innerBarX, innerBarY, innerBarW, innerBarH, ASTRA_PANEL_BORDER_COLOR);
 
         int fillH = (tempVolume * innerBarH) / 100;
-        uint16_t volColor = (tempVolume > 80) ? TFT_RED : bruceConfig.priColor;
+        uint16_t volColor = bruceConfig.priColor;
         tft.fillRect(innerBarX, innerBarY + (innerBarH - fillH), innerBarW, fillH, volColor);
 
         // Volume percentage text
-        tft.setTextColor(TFT_WHITE, TFT_BLACK);
+        tft.setTextColor(TFT_WHITE, ASTRA_PANEL_COLOR);
         tft.setTextSize(1);
         tft.setCursor(BAR_X + 10, BAR_Y + BAR_HEIGHT - 15);
         tft.printf("%3d%%", tempVolume);
@@ -229,7 +228,6 @@ bool showVolumeControl(uint8_t &currentVolume) {
     drawVolumeBar();
 
     while (true) {
-        InputHandler();
         wakeUpScreen();
 
         bool needsRedraw = false;
@@ -298,6 +296,8 @@ void musicPlayerUI(FS *fs, const String &filepath) {
     unsigned long currentPosition = 0;
     unsigned long duration = 0;
     uint8_t currentVolume = bruceConfig.soundVolume;
+    String coverArtPath = filepath.substring(0, filepath.lastIndexOf('.')) + ".jpg";
+    bool trackPanelDrawn = false;
 
     // --- Draw functions ---
 
@@ -306,40 +306,41 @@ void musicPlayerUI(FS *fs, const String &filepath) {
         tft.setTextColor(bruceConfig.bgColor, bruceConfig.priColor);
         tft.setTextSize(ui.TEXT_SIZE_LARGE);
 
-        // Center title
-        String title = "AUDIO PLAYER (BETA)";
+        String title = "ASTRA  |  SANGEET";
         int w = title.length() * 6 * ui.TEXT_SIZE_LARGE;
         tft.setCursor((tftWidth - w) / 2, (ui.HEADER_HEIGHT - (8 * ui.TEXT_SIZE_LARGE)) / 2);
         tft.print(title);
     };
     auto drawTrackInfo = [&]() {
         int y = ui.HEADER_HEIGHT + ui.MARGIN_Y;
-
-        // Background area info
-        tft.fillRect(0, y, tftWidth, ui.DISPLAY_HEIGHT, bruceConfig.bgColor);
-
-        // Music icon box - larger for better visibility
         int iconSize = ui.DISPLAY_HEIGHT - 4;
-        int boxSize = iconSize + 45; // Wider box towards right
-        tft.drawRoundRect(ui.MARGIN_X, y + 2, boxSize, iconSize, 4, TFT_DARKGREY);
-        tft.setTextColor(TFT_WHITE);
-        tft.setTextSize(2);
-
-        // Center "AUDIO" text in box
-        String AudioFormatLabel = "AUDIO";              // TODO: Use file extension
-        int textWidth = AudioFormatLabel.length() * 12; // textSize(2): 6 pixel base * 2 = 12 pixel per char
-        int textHeight = 16;                            // textSize(2): 8 pixel base * 2 = 16 pixel
-        int centerX = ui.MARGIN_X + (boxSize - textWidth) / 2 + 2; // Offset 5
-        int centerY = y + 2 + (iconSize - textHeight) / 2;
-        tft.setCursor(centerX, centerY);
-        tft.print(AudioFormatLabel);
-
-        // Scrolling Title
-        int gap = 20; // Fixed gap from MP3 box
+        int boxSize = iconSize + 8;
+        int gap = 10;
         int textX = ui.MARGIN_X + boxSize + gap;
-        int maxChars = (tftWidth - textX - 5) / (6 * ui.TEXT_SIZE_LARGE);
 
-        tft.setTextColor(TFT_WHITE, bruceConfig.bgColor);
+        if (!trackPanelDrawn) {
+            tft.fillRoundRect(
+                ui.MARGIN_X, y, tftWidth - 2 * ui.MARGIN_X, ui.DISPLAY_HEIGHT, 8, ASTRA_PANEL_COLOR
+            );
+            tft.drawRoundRect(ui.MARGIN_X, y + 2, boxSize, iconSize, 5, ASTRA_PANEL_BORDER_COLOR);
+            const int artSize = min(24, iconSize - 4);
+            const int artX = ui.MARGIN_X + (boxSize - artSize) / 2;
+            const int artY = y + 2 + (iconSize - artSize) / 2;
+            bool coverDrawn = fs->exists(coverArtPath)
+                              && showJpeg(*fs, coverArtPath, artX, artY, false);
+            if (!coverDrawn) {
+                tft.setTextColor(bruceConfig.priColor, ASTRA_PANEL_COLOR);
+                tft.setTextSize(1);
+                tft.drawCentreString("MUSIC", ui.MARGIN_X + boxSize / 2, y + (iconSize - 8) / 2 + 2, 1);
+            }
+            trackPanelDrawn = true;
+        } else {
+            tft.fillRect(textX, y + 1, tftWidth - textX - ui.MARGIN_X, ui.DISPLAY_HEIGHT - 2, ASTRA_PANEL_COLOR);
+        }
+
+        int maxChars = max(1, (tftWidth - textX - 5) / (6 * ui.TEXT_SIZE_LARGE));
+
+        tft.setTextColor(TFT_WHITE, ASTRA_PANEL_COLOR);
         tft.setTextSize(ui.TEXT_SIZE_LARGE);
 
         String displayText = player.filename;
@@ -417,7 +418,6 @@ void musicPlayerUI(FS *fs, const String &filepath) {
     unsigned long lastPosUpdate = 0;
     // MAIN LOOP
     while (true) {
-        InputHandler();
         wakeUpScreen();
 
         bool controlsNeedRedraw = false;
@@ -499,6 +499,7 @@ void musicPlayerUI(FS *fs, const String &filepath) {
                         showVolumeControl(currentVolume);
                         tft.fillScreen(bruceConfig.bgColor); // Full redraw after popup
                         drawHeader();
+                        trackPanelDrawn = false;
                         infoNeedsRedraw = true;
                         progressNeedsRedraw = true;
                         controlsNeedRedraw = true;

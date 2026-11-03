@@ -737,38 +737,43 @@ void setRFFreqMenu() {
 **  Handles Menu to set the RFID module in use
 **********************************************************************/
 void setRFIDModuleMenu() {
-    options = {
-        {"M5 RFID2",
-         [=]() { bruceConfigPins.setRfidModule(M5_RFID2_MODULE); },
-         bruceConfigPins.rfidModule == M5_RFID2_MODULE     },
-#ifdef M5STICK
-        {"PN532 I2C G33",
-         [=]() { bruceConfigPins.setRfidModule(PN532_I2C_MODULE); },
-         bruceConfigPins.rfidModule == PN532_I2C_MODULE    },
-        {"PN532 I2C G36",
-         [=]() { bruceConfigPins.setRfidModule(PN532_I2C_SPI_MODULE); },
-         bruceConfigPins.rfidModule == PN532_I2C_SPI_MODULE},
-#else
-        {"PN532 on I2C",
-         [=]() { bruceConfigPins.setRfidModule(PN532_I2C_MODULE); },
-         bruceConfigPins.rfidModule == PN532_I2C_MODULE},
-#endif
-        {"PN532 on SPI",
-         [=]() { bruceConfigPins.setRfidModule(PN532_SPI_MODULE); },
-         bruceConfigPins.rfidModule == PN532_SPI_MODULE    },
-        {"RC522 on SPI",
-         [=]() { bruceConfigPins.setRfidModule(RC522_SPI_MODULE); },
-         bruceConfigPins.rfidModule == RC522_SPI_MODULE    },
-#if !defined(LITE_VERSION)
-        {"ST25R3916 SPI",
-         [=]() { bruceConfigPins.setRfidModule(ST25R3916_SPI_MODULE); },
-         bruceConfigPins.rfidModule == ST25R3916_SPI_MODULE},
-        {"ST25R3916 I2C",
-         [=]() { bruceConfigPins.setRfidModule(ST25R3916_I2C_MODULE); },
-         bruceConfigPins.rfidModule == ST25R3916_I2C_MODULE},
-#endif
+    options.clear();
+    int selectedIndex = 0;
+    auto addModuleOption = [&](const char *label, RFIDModules module) {
+        bool selected = bruceConfigPins.rfidModule == module;
+        options.push_back({label, [module]() { bruceConfigPins.setRfidModule(module); }, selected});
+        if (selected) selectedIndex = options.size() - 1;
     };
-    loopOptions(options, bruceConfigPins.rfidModule);
+
+    addModuleOption("M5 RFID2", M5_RFID2_MODULE);
+#ifdef M5STICK
+    addModuleOption("PN532 I2C G33", PN532_I2C_MODULE);
+    addModuleOption("PN532 I2C G36", PN532_I2C_SPI_MODULE);
+#else
+    addModuleOption("PN532 on I2C", PN532_I2C_MODULE);
+#endif
+    addModuleOption("PN532 on SPI", PN532_SPI_MODULE);
+    addModuleOption("RC522 on SPI", RC522_SPI_MODULE);
+#if !defined(LITE_VERSION)
+#if defined(TCA8418_INT_PIN)
+    bool cardputerNfcSelected = bruceConfigPins.rfidModule == ST25R3916_SPI_MODULE;
+    options.push_back({
+        "M5Stack Cap CC1101 NFC (SPI)",
+        []() {
+            bruceConfigPins.setSR25RPins(BruceConfigPins::SPIPins(
+                GPIO_NUM_40, GPIO_NUM_39, GPIO_NUM_14, GPIO_NUM_6, GPIO_NUM_4
+            ));
+            bruceConfigPins.setRfidModule(ST25R3916_SPI_MODULE);
+        },
+        cardputerNfcSelected
+    });
+    if (cardputerNfcSelected) selectedIndex = options.size() - 1;
+#else
+    addModuleOption("ST25R3916 SPI", ST25R3916_SPI_MODULE);
+#endif
+    addModuleOption("ST25R3916 I2C", ST25R3916_I2C_MODULE);
+#endif
+    loopOptions(options, selectedIndex);
 }
 
 /*********************************************************************
@@ -1279,11 +1284,11 @@ void setGpsBaudrateMenu() {
 **  Handles Menu to set the WiFi AP SSID
 **********************************************************************/
 void setWifiApSsidMenu() {
-    const bool isDefault = bruceConfig.wifiAp.ssid == "BruceNet";
+    const bool isDefault = bruceConfig.wifiAp.ssid == "ASTRANet";
 
     options = {
-        {"Default (BruceNet)",
-         [=]() { bruceConfig.setWifiApCreds("BruceNet", bruceConfig.wifiAp.pwd); },
+        {"Default (ASTRANet)",
+         [=]() { bruceConfig.setWifiApCreds("ASTRANet", bruceConfig.wifiAp.pwd); },
          isDefault                                                                            },
         {"Custom",
          [=]() {

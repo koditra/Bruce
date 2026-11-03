@@ -13,6 +13,7 @@
 #include "menu_items/GpsMenu.h"
 #include "menu_items/IRMenu.h"
 #include "menu_items/LoRaMenu.h"
+#include "menu_items/MusicMenu.h"
 #include "menu_items/NRF24.h"
 #include "menu_items/OthersMenu.h"
 #include "menu_items/RFIDMenu.h"
@@ -31,6 +32,7 @@ public:
     IRMenu irMenu;
     NRF24Menu nrf24Menu;
     OthersMenu othersMenu;
+    MusicMenu musicMenu;
     RFIDMenu rfidMenu;
     RFMenu rfMenu;
     ScriptsMenu scriptsMenu;

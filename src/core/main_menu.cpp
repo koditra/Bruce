@@ -7,6 +7,7 @@ MainMenu::MainMenu() {
     _menuItems = {
         &wifiMenu,
         &bleMenu,
+        &rfidMenu,
         &rfMenu,
         &nrf24Menu,
 #if !defined(LITE_VERSION)
@@ -20,12 +21,12 @@ MainMenu::MainMenu() {
         &ethernetMenu,
 #endif
         &gpsMenu,
-        &rfidMenu,
         &fileMenu,
 #if !defined(LITE_VERSION) && !defined(DISABLE_INTERPRETER)
         &scriptsMenu,
 #endif
         &clockMenu,
+        &musicMenu,
         &othersMenu,
         &configMenu,
     };
@@ -39,10 +40,16 @@ void MainMenu::begin(void) {
     returnToMenu = false;
     options = {};
 
-    std::vector<String> l = bruceConfig.disabledMenus;
+    // Ensure the music feature is visible even if older firmware versions saved
+    // the menu label in the disabled-menu list.
+    bruceConfig.removeDisabledMenu("Sangeet / Music");
+    bruceConfig.removeDisabledMenu("संगीत / Music");
+    bruceConfig.removeDisabledMenu("Music");
+
+    const std::vector<String> &disabledMenus = bruceConfig.disabledMenus;
     for (int i = 0; i < _totalItems; i++) {
         String itemName = _menuItems[i]->getName();
-        if (find(l.begin(), l.end(), itemName) == l.end()) { // If menu item is not disabled
+        if (find(disabledMenus.begin(), disabledMenus.end(), itemName) == disabledMenus.end()) {
             options.push_back(
                 {// selected lambda
                  itemName,
@@ -66,7 +73,7 @@ void MainMenu::begin(void) {
             );
         }
     }
-    _currentIndex = loopOptions(options, MENU_TYPE_MAIN, "Main Menu", _currentIndex);
+    _currentIndex = loopOptions(options, MENU_TYPE_MAIN, "ASTRA Menu", _currentIndex);
 };
 
 /*********************************************************************

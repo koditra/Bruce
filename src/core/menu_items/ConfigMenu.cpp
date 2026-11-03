@@ -45,10 +45,10 @@ void ConfigMenu::optionsMenu() {
             localOptions.push_back({"Dev Mode", [this]() { devMenu(); }});
         }
 
-        localOptions.push_back({"About", showDeviceInfo});
+        localOptions.push_back(        {"ASTRA About", showDeviceInfo});
         localOptions.push_back({"Main Menu", []() {}});
 
-        int selected = loopOptions(localOptions, MENU_TYPE_SUBMENU, "Config");
+        int selected = loopOptions(localOptions, MENU_TYPE_SUBMENU, "Vyavastha / Settings");
 
         // Exit to Main Menu only if user pressed Back
         if (selected == -1 || selected == localOptions.size() - 1) { return; }

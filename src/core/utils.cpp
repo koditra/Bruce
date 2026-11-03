@@ -65,9 +65,12 @@ int getBattery() {
     return 0;
 }
 
-void updateClockTimezone() {
+bool updateClockTimezone() {
     timeClient.begin();
-    timeClient.update();
+    if (!WiFi.isConnected() || !timeClient.forceUpdate()) {
+        Serial.println("NTP time sync failed.");
+        return false;
+    }
 
     timeClient.setTimeOffset(bruceConfig.tmz * 3600);
 
@@ -89,6 +92,7 @@ void updateClockTimezone() {
     // Update Internal clock to system time
     struct timeval tv = {.tv_sec = localTime};
     settimeofday(&tv, nullptr);
+    return true;
 }
 
 #if !defined(HAS_RTC)
@@ -157,9 +161,9 @@ void updateTimeStr(struct tm timeInfo) {
 }
 
 void showDeviceInfo() {
-    ScrollableTextArea area = ScrollableTextArea("DEVICE INFO");
+    ScrollableTextArea area = ScrollableTextArea("ASTRA DEVICE INFO");
 
-    area.addLine("Bruce Version: " + String(BRUCE_VERSION));
+    area.addLine("ASTRA Firmware Version: " + String(BRUCE_VERSION));
     area.addLine("EEPROM size: " + String(EEPROMSIZE));
     area.addLine("");
     area.addLine("[MEMORY]");

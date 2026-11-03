@@ -15,6 +15,76 @@
 #include <ESP8266Audio.h>
 #include <ESP8266SAM.h>
 
+#if defined(USE_M5_UNIFIED_AUDIO)
+#include <atomic>
+
+class AudioOutputM5Speaker : public AudioOutput {
+public:
+    AudioOutputM5Speaker(m5::Speaker_Class *m5sound, uint8_t virtual_sound_channel = 0) {
+        _m5sound = m5sound;
+        _virtual_ch = virtual_sound_channel;
+    }
+    virtual ~AudioOutputM5Speaker(void) {}
+
+    void setup(void) { _m5sound->setBufferReleaseCallback(this, bufferReleased); }
+
+    virtual bool begin(void) override { return true; }
+
+    virtual bool ConsumeSample(int16_t sample[2]) override {
+        if (_buffer_index < buf_size) {
+            _buffer[_index][_buffer_index] = sample[0];
+            _buffer[_index][_buffer_index + 1] = sample[1];
+            _buffer_index += 2;
+            return true;
+        }
+        flush();
+        return false;
+    }
+
+    virtual void flush(void) override {
+        if (_buffer_index) {
+            _busy[_index] = true;
+            if (!_m5sound->playRaw(_buffer[_index], _buffer_index, hertz, true, 1, _virtual_ch)) {
+                _busy[_index] = false;
+            }
+            if (++_index >= buf_count) _index = 0;
+            _buffer_index = 0;
+            while (_busy[_index]) vTaskDelay(1);
+        }
+    }
+
+    virtual bool stop(void) override {
+        flush();
+        for (size_t i = 0; i < buf_count; ++i) while (_busy[i]) vTaskDelay(1);
+        return true;
+    }
+
+    virtual bool SetGain(float gain) override {
+        AudioOutput::SetGain(gain);
+        uint8_t volume = (uint8_t)(gain * 64.0f);
+        _m5sound->setVolume(volume);
+        return true;
+    }
+
+protected:
+    m5::Speaker_Class *_m5sound;
+    uint8_t _virtual_ch;
+    static constexpr size_t buf_count = 3;
+    static constexpr size_t buf_size = 4096;
+    int16_t _buffer[buf_count][buf_size];
+    std::atomic<bool> _busy[buf_count] = {{false}, {false}, {false}};
+    size_t _buffer_index = 0;
+    size_t _index = 0;
+
+    static void bufferReleased(void *args, const void *data, uint8_t) {
+        auto output = (AudioOutputM5Speaker *)args;
+        for (size_t i = 0; i < buf_count; ++i) {
+            if (data == output->_buffer[i]) output->_busy[i] = false;
+        }
+    }
+};
+#endif
+
 void _setup_codec_speaker(bool enable) __attribute__((weak));
 void _setup_codec_speaker(bool enable) {}
 
@@ -24,7 +94,7 @@ static const float AUDIO_VOLUME_MAX = 100.0f;
 
 // Task configuration
 static const uint32_t AUDIO_TASK_STACK_SIZE = 16384; // 16KB - increased for complex MP3 files
-static const UBaseType_t AUDIO_TASK_PRIORITY = 1;
+static const UBaseType_t AUDIO_TASK_PRIORITY = 2;
 static const BaseType_t AUDIO_TASK_CORE = 1; // Core 1
 
 // ===== ASYNC PLAYBACK STATE =====
@@ -32,7 +102,7 @@ struct AudioPlayerState {
     // Playback objects
     AudioGenerator *generator;
     AudioFileSource *source;
-    AudioOutputI2S *output;
+    AudioOutput *output;
 
     // State management
     PlaybackState state;
@@ -121,7 +191,20 @@ static void initAudioPlayer() {
 }
 
 // Internal helper - unified audio output creation
-static AudioOutputI2S *createConfiguredAudioOutput() {
+static AudioOutput *createConfiguredAudioOutput() {
+#if defined(USE_M5_UNIFIED_AUDIO)
+    AudioOutputM5Speaker *audioout = new AudioOutputM5Speaker(&M5.Speaker, 0);
+    if (!audioout) {
+        Serial.println("ERROR: M5 speaker audio output allocation failed");
+        return nullptr;
+    }
+    audioout->setup();
+    audioout->SetGain(bruceConfig.soundVolume / AUDIO_VOLUME_MAX);
+    audioout->SetRate(44100);
+    audioout->SetChannels(2);
+    Serial.println("INFO: Using M5Unified speaker output for Cardputer ADV with release callback");
+    return audioout;
+#else
     AudioOutputI2S *audioout = new AudioOutputI2S();
 
     if (!audioout) {
@@ -133,6 +216,7 @@ static AudioOutputI2S *createConfiguredAudioOutput() {
     audioout->SetGain(bruceConfig.soundVolume / AUDIO_VOLUME_MAX);
 
     return audioout;
+#endif
 }
 
 // Helper to validate file existence
@@ -391,7 +475,7 @@ void setAudioPlaybackVolume(uint8_t volume) {
 
 // ===== HELPER: Start async playback task =====
 static bool startAsyncPlayback(
-    AudioGenerator *generator, AudioFileSource *source, AudioOutputI2S *output, const String &filename
+    AudioGenerator *generator, AudioFileSource *source, AudioOutput *output, const String &filename
 ) {
     initAudioPlayer();
 
@@ -469,10 +553,9 @@ bool playAudioFile(FS *fs, String filepath, PlaybackMode mode) {
         return false;
     }
 
-    AudioOutputI2S *audioout = createConfiguredAudioOutput();
+    AudioOutput *audioout = createConfiguredAudioOutput();
     if (!audioout) {
-        delete source;
-        _setup_codec_speaker(false);
+        delete source;        _setup_codec_speaker(false);
         return false;
     }
 
@@ -546,7 +629,7 @@ bool playAudioRTTTLString(String song, PlaybackMode mode) {
 
     _setup_codec_speaker(true);
 
-    AudioOutputI2S *audioout = createConfiguredAudioOutput();
+    AudioOutput *audioout = createConfiguredAudioOutput();
     if (!audioout) {
         _setup_codec_speaker(false);
         return false;
@@ -618,7 +701,7 @@ bool tts(String text, PlaybackMode mode) {
 
     _setup_codec_speaker(true);
 
-    AudioOutputI2S *audioout = createConfiguredAudioOutput();
+    AudioOutput *audioout = createConfiguredAudioOutput();
     if (!audioout) {
         _setup_codec_speaker(false);
         return false;
@@ -669,7 +752,7 @@ void playTone(unsigned int frequency, unsigned long duration, short waveType) {
 
     float hz = frequency;
 
-    AudioOutputI2S *out = createConfiguredAudioOutput();
+    AudioOutput *out = createConfiguredAudioOutput();
     if (!out) {
         _setup_codec_speaker(false);
         return;
@@ -740,7 +823,7 @@ void _tone(unsigned int frequency, unsigned long duration) {
     if (frequency == 0) {
         if (duration > 0) delay(duration);
     } else {
-        uint8_t m5vol = (bruceConfig.soundVolume * 255) / AUDIO_VOLUME_MAX;
+        uint8_t m5vol = (bruceConfig.soundVolume * 64) / AUDIO_VOLUME_MAX;
         M5.Speaker.setVolume(m5vol);
         M5.Speaker.tone(frequency, duration);
         if (duration > 0) delay(duration);

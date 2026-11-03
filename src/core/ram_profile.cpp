@@ -1,6 +1,7 @@
 #include "ram_profile.h"
 
-#if defined(ENABLE_RAM_LOGGING)
+#if defined(ENABLE_RAM_LOGGING) && \
+    (!defined(ARDUINO_M5STACK_CARDPUTER) || defined(ASTRA_CARDPUTER_RAM_PROFILING))
 
 #include <Arduino.h>
 #include <esp_heap_caps.h>

@@ -13,6 +13,7 @@
 #include "current_year.h"
 
 #define MAX_WAIT 5000
+#define GPS_INIT_TIMEOUT_SECONDS 10
 
 GPSTracker::GPSTracker() { setup(); }
 
@@ -47,14 +48,20 @@ bool GPSTracker::begin_gps() {
 
     int count = 0;
     padprintln("Waiting for GPS data");
-    while (GPSserial.available() <= 0) {
+    while (GPSserial.available() <= 0 && count < GPS_INIT_TIMEOUT_SECONDS) {
         if (check(EscPress)) {
             end();
             return false;
         }
-        displayTextLine("Waiting GPS: " + String(count) + "s");
+        displayTextLine("Waiting GPS: " + String(count) + "s / " + String(GPS_INIT_TIMEOUT_SECONDS) + "s");
         count++;
         vTaskDelay(1000 / portTICK_PERIOD_MS);
+    }
+
+    if (GPSserial.available() <= 0) {
+        displayError("GPS Cap not responding!", true);
+        end();
+        return false;
     }
 
     gpsConnected = true;

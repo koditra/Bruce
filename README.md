@@ -120,6 +120,7 @@ Also, [read our FAQ](https://wiki.bruce.computer/faq/)
 - [x] Read 125kHz
 - [x] Clone tag
 - [x] Write NDEF records
+- [x] Native Amiibo emulation (ST25R3916; requires a complete user-supplied NTAG215 dump)
 - [x] Amiibolink
 - [x] Chameleon
 - [x] Write data
@@ -131,12 +132,16 @@ Also, [read our FAQ](https://wiki.bruce.computer/faq/)
     - [x] PN532
     - [x] PN532Killer
 - [ ] Emulate tag
+
+Native Amiibo emulation requires an ST25R3916 module and a complete NTAG215 dump, including its version and signature metadata. Amiibo dump files are not included; use only dumps you are authorized to use.
 </details>
 
 <details>
   <summary><h2>IR</h2></summary>
 
 - [x] TV-B-Gone
+- [x] Projector B-Gone
+- [x] LG Power Off
 - [x] IR Receiver
 - [x] [Custom IR (NEC, NECext, SIRC, SIRC15, SIRC20, Samsung32, RC5, RC5X, RC6)](https://wiki.bruce.computer/features/ir/#replay-payloads-like-flipper)
 - [x] Config - [X] Ir TX Pin - [X] Ir RX Pin

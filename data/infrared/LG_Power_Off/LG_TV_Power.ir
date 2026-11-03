@@ -1,0 +1,19 @@
+# LG TV power profiles derived from the CC0 Flipper-IRDB collection.
+# Source commit: d126fb1b6f1e114c52b4a8c19839ea65e3a9c24d
+# https://github.com/Lucaslhm/Flipper-IRDB/tree/d126fb1b6f1e114c52b4a8c19839ea65e3a9c24d/TVs/LG
+# These are toggle commands, not discrete power-off commands.
+Filetype: IR signals file
+Version: 1
+#
+name: LG TV standard power
+type: parsed
+protocol: NEC
+address: 04 00 00 00
+command: 08 00 00 00
+#
+name: LG Hotel TV power
+type: parsed
+protocol: NECext
+address: 69 69 00 00
+command: 01 FE 00 00
+#

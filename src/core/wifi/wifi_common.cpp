@@ -15,6 +15,18 @@
 
 static TaskHandle_t timezoneTaskHandle = NULL;
 static bool wifiTransitioning = false;
+static volatile bool timezoneUpdateRequested = false;
+
+void requestWifiTimeSync() {
+    timezoneUpdateRequested = true;
+    if (timezoneTaskHandle == NULL) {
+        if (xTaskCreate(updateTimezoneTask, "updateTimezone", 4096, NULL, 1, &timezoneTaskHandle) != pdPASS) {
+            timezoneTaskHandle = NULL;
+            timezoneUpdateRequested = false;
+            Serial.println("Could not start NTP sync task.");
+        }
+    }
+}
 
 esp_err_t wifiRawTx(wifi_interface_t ifx, const void *frame, int len, uint8_t retries) {
     esp_err_t err = esp_wifi_80211_tx(ifx, frame, len, false);
@@ -85,10 +97,7 @@ bool _wifiConnect(const String &ssid, int encryption) {
         wifiIP = WiFi.localIP().toString();
         bruceConfig.addWifiCredential(ssid, password);
 
-        // Start timezone update in background if not already running
-        if (timezoneTaskHandle == NULL) {
-            xTaskCreate(updateTimezoneTask, "updateTimezone", 4096, NULL, 1, &timezoneTaskHandle);
-        }
+        requestWifiTimeSync();
     }
 
     delay(200);
@@ -320,10 +329,7 @@ void wifiConnectTask(void *pvParameters) {
                 wifiConnected = true;
                 wifiIP = WiFi.localIP().toString();
 
-                // Start timezone update in background if not already running
-                if (timezoneTaskHandle == NULL) {
-                    xTaskCreate(updateTimezoneTask, "updateTimezone", 4096, NULL, 1, &timezoneTaskHandle);
-                }
+                requestWifiTimeSync();
                 drawStatusBar();
                 break;
             }
@@ -385,22 +391,27 @@ bool wifiConnecttoKnownNet(void) {
         wifiConnected = true;
         wifiIP = WiFi.localIP().toString();
 
-        // Start timezone update in background if not already running
-        if (timezoneTaskHandle == NULL) {
-            xTaskCreate(updateTimezoneTask, "updateTimezone", 4096, NULL, 1, &timezoneTaskHandle);
-        }
+        requestWifiTimeSync();
     }
     return result;
 }
 
 void updateTimezoneTask(void *pvParameters) {
-    // Wait a bit for connection to stabilize before updating timezone
-    vTaskDelay(5000 / portTICK_PERIOD_MS);
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    while (timezoneUpdateRequested) {
+        timezoneUpdateRequested = false;
+        bool synced = false;
+        for (uint8_t attempt = 0; attempt < 3 && !synced; attempt++) {
+            if (WiFi.isConnected() && wifiConnected) synced = updateClockTimezone();
+            if (!synced && attempt < 2) vTaskDelay(5000 / portTICK_PERIOD_MS);
+        }
+        if (synced) {
+            drawStatusBar();
+        } else {
+            Serial.println("NTP sync did not complete after 3 attempts.");
+        }
+    }
 
-    // Only update timezone if WiFi is still connected
-    if (WiFi.isConnected() && wifiConnected) { updateClockTimezone(); }
-
-    // Clear the task handle before deleting
     timezoneTaskHandle = NULL;
     vTaskDelete(NULL);
 }

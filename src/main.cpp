@@ -129,6 +129,7 @@ bool isWebUIActive = false;
 String wifiIP;
 
 bool BLEConnected = false;
+bool IRMenuActive = false;
 bool returnToMenu;
 bool isSleeping = false;
 bool isScreenOff = false;
@@ -640,7 +641,8 @@ void loop() {
 #endif
     tft.fillScreen(bruceConfig.bgColor);
 
-#if defined(ENABLE_RAM_LOGGING)
+#if defined(ENABLE_RAM_LOGGING) && \
+    (!defined(ARDUINO_M5STACK_CARDPUTER) || defined(ASTRA_CARDPUTER_RAM_PROFILING))
     static bool ramLoggedFirstMenu = false;
     if (!ramLoggedFirstMenu) {
         RAM_LOG("first-mainMenu");

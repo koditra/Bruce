@@ -3973,7 +3973,7 @@ void BLE_Sniffer() {
                     tft.fillScreen(bruceConfig.bgColor);
                     drawMainBorderWithTitle("CAPTURED PACKETS");
 
-                    tft.setTextSize(FP);
+                    tft.setTextSize(ASTRA_FONT_SMALL);
                     tft.setTextColor(TFT_CYAN, bruceConfig.bgColor);
                     tft.setCursor(10, y);
                     tft.println("Packets: " + String(snifferPacketCount));
@@ -4039,7 +4039,7 @@ void BLE_Sniffer() {
                     drawMainBorderWithTitle("PACKET DETAILS");
                     int dy = BORDER_PAD_Y + FM * LH + 4;
                     int dlh = max(12, tftHeight / 14);
-                    tft.setTextSize(FP);
+                    tft.setTextSize(ASTRA_FONT_SMALL);
                     tft.setTextColor(TFT_WHITE, bruceConfig.bgColor);
 
                     tft.setCursor(10, dy);
@@ -4371,7 +4371,7 @@ String selectTargetFromScan(const char *title) {
                 String displayText = snapshot->names[idx];
                 if (displayText.length() > 18) displayText = displayText.substring(0, 15) + "...";
                 displayText += " (" + String(snapshot->rssi[idx]) + "dB)";
-                if (snapshot->fastPair[idx]) displayText += " [FP]";
+                if (snapshot->fastPair[idx]) displayText += " [ASTRA_FONT_SMALL]";
                 if (snapshot->hfp[idx]) displayText += " [HFP]";
                 if (snapshot->types[idx] & 0x01) displayText += " [AUDIO]";
                 if (snapshot->types[idx] & 0x02) displayText += " [HID]";
@@ -4888,7 +4888,7 @@ void showWelcomeScreen() {
     tft.setTextSize(4);
     tft.setTextColor(TFT_PURPLE, bruceConfig.bgColor);
     tft.setCursor((tftWidth - tft.textWidth("BRUCE")) / 2, 35);
-    tft.print("BRUCE");
+    tft.print("ASTRA");
 
     tft.setTextColor(TFT_BLUE, bruceConfig.bgColor);
     tft.setTextSize(2);

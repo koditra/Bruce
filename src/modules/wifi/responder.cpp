@@ -194,7 +194,7 @@ void updateHashUI() {
     drawMainBorderWithTitle("RESPONDER", true); // clear
 
     // 1) NTLM count
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
     tft.setCursor(10, BORDER_PAD_Y + FM * LH);
     tft.print("NTLM: ");
@@ -202,28 +202,28 @@ void updateHashUI() {
     tft.println(hashCount);
 
     // 2) User
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     tft.setCursor(10, tft.getCursorY());
     tft.print("User: ");
     tft.setTextSize(2);
     tft.println(lastUser);
 
     // 3) Domain
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     tft.setCursor(10, tft.getCursorY());
     tft.print("Domain: ");
     tft.setTextSize(2);
     tft.println(lastDomain);
 
     // 4) Client (hostname)
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     tft.setCursor(10, tft.getCursorY());
     tft.print("Client: ");
     tft.setTextSize(2);
     tft.println(lastClient);
 
     // 5) Query (NBNS/LLMNR + name)
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     tft.setCursor(10, tft.getCursorY());
     tft.print(lastQueryProtocol + ": ");
     tft.setTextSize(2);
@@ -608,13 +608,13 @@ void responder() {
             //  Choix de la fonction selon le count
             if (hashCount == 0) {
                 tft.setCursor(10, BORDER_PAD_Y + FM * LH);
-                tft.setTextSize(FP);
+                tft.setTextSize(ASTRA_FONT_SMALL);
                 tft.println("Waiting LLMNR Interact");
             } else if (hashCount == 1) {
-                tft.setCursor(10, tftHeight - (7 + 2 * FP * LH));
-                tft.setTextSize(FP);
+                tft.setCursor(10, tftHeight - (7 + 2 * ASTRA_FONT_SMALL * LH));
+                tft.setTextSize(ASTRA_FONT_SMALL);
                 tft.println("Found Interaction!");
-                tft.setCursor(10, tftHeight - (6 + FP * LH));
+                tft.setCursor(10, tftHeight - (6 + ASTRA_FONT_SMALL * LH));
                 tft.println("thanks 7h30th3r0n3");
             }
             lastAnim = now;

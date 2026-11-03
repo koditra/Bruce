@@ -3,7 +3,8 @@
 
 // Usage: RAM_LOG("stage-name"); at each boot stage you want to measure.
 
-#if defined(ENABLE_RAM_LOGGING)
+#if defined(ENABLE_RAM_LOGGING) && \
+    (!defined(ARDUINO_M5STACK_CARDPUTER) || defined(ASTRA_CARDPUTER_RAM_PROFILING))
 
 // Logs, over Serial, the current heap/PSRAM state and elapsed time for a named
 // boot stage. Focus is on INTERNAL DRAM (free + largest contiguous block),

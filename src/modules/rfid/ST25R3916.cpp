@@ -565,7 +565,12 @@ bool ST25R3916::_pollForTag(rfalNfcDevice **dev, uint32_t timeoutMs) {
     params.wakeupEnabled = false;
     params.wakeupConfigDefault = true;
 
-    if (_nfc->rfalNfcDiscover(&params) != ST_ERR_NONE) return false;
+    if (_nfc->rfalNfcDiscover(&params) != ST_ERR_NONE) {
+        _nfc->rfalNfcDeactivate(false);
+        _discoveryStarted = false;
+        return false;
+    }
+    _discoveryStarted = true;
     _hw->st25r3916OscOn();
 
     uint32_t deadline = millis() + timeoutMs;
@@ -577,6 +582,8 @@ bool ST25R3916::_pollForTag(rfalNfcDevice **dev, uint32_t timeoutMs) {
         }
         vTaskDelay(pdMS_TO_TICKS(5));
     }
+    _nfc->rfalNfcDeactivate(false);
+    _discoveryStarted = false;
     return false;
 }
 
@@ -709,12 +716,9 @@ int ST25R3916::_writeNdefBlocks(rfalNfcDevice *dev) {
         pagesWritten++;
     }
 
-    uint8_t zeros[4] = {0x00, 0x00, 0x00, 0x00};
-    for (int page = 4 + pagesWritten; _isUltralightUserPage(page); page++) {
-        if (!_writeT2TPage((uint8_t)page, zeros)) { return FAILURE; }
-    }
-
-    ST25R_LOG("_writeNdefBlocks: wrote %d bytes", (int)idx);
+    // The TLV length and terminator delimit the NDEF message; clearing every
+    // remaining NTAG page is unnecessary and makes rewrites needlessly slow.
+    ST25R_LOG("_writeNdefBlocks: wrote %d bytes across %d pages", (int)idx, pagesWritten);
     return SUCCESS;
 }
 
@@ -924,7 +928,7 @@ int ST25R3916::write_ndef() {
     _deselectSharedSpiDevices();
 
     rfalNfcDevice *dev;
-    if (!_pollForTag(&dev)) return TAG_NOT_PRESENT;
+    if (!_pollForTag(&dev, 1000)) return TAG_NOT_PRESENT;
 
     if (dev->type != RFAL_NFC_LISTEN_TYPE_NFCA || dev->dev.nfca.selRes.sak != 0x00) {
         _nfc->rfalNfcDeactivate(false);

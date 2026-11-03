@@ -18,6 +18,9 @@
 void panelSleep(bool on);
 void turnOffDisplay();
 bool wakeUpScreen();
+#if defined(ASTRA_IDLE_ANIMATION)
+void drawIdleAnimationFrame(bool firstFrame);
+#endif
 
 struct Opt_Coord {
     uint16_t x = 0;

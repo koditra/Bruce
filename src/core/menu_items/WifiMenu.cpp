@@ -91,7 +91,7 @@ void WifiMenu::optionsMenu() {
                        }});
     options.push_back({"Wireguard", wg_setup});
     options.push_back({"Responder", responder});
-    options.push_back({"Brucegotchi", brucegotchi_start});
+    options.push_back({"ASTRA Gotchi", brucegotchi_start});
     options.push_back({"WiFi Pass Recovery", wifi_recover_menu});
 #endif
 

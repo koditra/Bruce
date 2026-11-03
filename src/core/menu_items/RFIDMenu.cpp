@@ -16,7 +16,7 @@
 void RFIDMenu::optionsMenu() {
     options = {
 #if !defined(REMOVE_RFID_HW_INTERFACE)  // Remove Hardware interface menu due to lack of external GPIO
-        {"Read tag",    [=]() { TagOMatic(); }                     },
+        {"Read NFC tag", [=]() { TagOMatic(); }                     },
 #ifndef LITE_VERSION
         {"Read EMV",    [=]() { EMVReader(); }                     },
         {"Read 125kHz", [=]() { RFID125(); }                       },
@@ -28,19 +28,11 @@ void RFIDMenu::optionsMenu() {
     };
 
 #if !defined(REMOVE_RFID_HW_INTERFACE)
-    // Emulate NDEF (arm the radio directly with a built NDEF message) only
-    // makes sense on modules that can act as a target/card emulator.
-    bool ndefEmulationSupported = bruceConfigPins.rfidModule == PN532_I2C_MODULE ||
-                                  bruceConfigPins.rfidModule == PN532_SPI_MODULE ||
-                                  bruceConfigPins.rfidModule == PN532_I2C_SPI_MODULE ||
-                                  bruceConfigPins.rfidModule == ST25R3916_SPI_MODULE ||
-                                  bruceConfigPins.rfidModule == ST25R3916_I2C_MODULE || false;
-    if (ndefEmulationSupported) {
-        options.push_back({"Emulate NDEF", [=]() { TagOMatic(TagOMatic::EMULATE_NDEF_MODE); }});
-    }
+    options.push_back({"Emulate NDEF", [=]() { TagOMatic(TagOMatic::EMULATE_NDEF_MODE); }});
     options.push_back({"Write NDEF", [=]() { TagOMatic(TagOMatic::WRITE_NDEF_MODE); }});
 #endif
 #ifndef LITE_VERSION
+    options.push_back({"Native Amiibo", [=]() { TagOMatic(TagOMatic::AMIIBO_LOAD_MODE); }});
     options.push_back({"Amiibolink", [=]() { Amiibo(); }});
 #endif
     options.push_back({"Chameleon", [=]() { Chameleon(); }});
@@ -65,7 +57,7 @@ void RFIDMenu::optionsMenu() {
 
     vTaskDelay(pdMS_TO_TICKS(200));
 
-    String txt = "RFID";
+    String txt = "NFC / RFID";
     if (bruceConfigPins.rfidModule == M5_RFID2_MODULE) txt += " (RFID2)";
 #ifdef M5STICK
     else if (bruceConfigPins.rfidModule == PN532_I2C_MODULE) txt += " (PN532-G33)";

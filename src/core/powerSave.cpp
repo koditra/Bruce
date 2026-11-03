@@ -25,7 +25,11 @@ void checkPowerSaveTime() {
         setBrightness(startDimmerBright, false);
     } else if (elapsed >= (dimmerSetMs + SCREEN_OFF_DELAY) && !isScreenOff && !isSleeping) {
         isScreenOff = true;
+#if defined(ASTRA_IDLE_ANIMATION)
+        if (menuOptionType != MENU_TYPE_MAIN) fadeOutScreen(startDimmerBright);
+#else
         fadeOutScreen(startDimmerBright);
+#endif
     }
 }
 

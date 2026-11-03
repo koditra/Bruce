@@ -583,9 +583,9 @@ static void _activeLoop() {
                     else trollOn++;
                 }
             }
-            const int _lh = (LH * FP + 2);
+            const int _lh = (LH * ASTRA_FONT_SMALL + 2);
             tft.fillRect(6, tftHeight - 6 * _lh, tftWidth - 12, 6 * _lh - 6, bruceConfig.bgColor);
-            tft.setTextSize(FP);
+            tft.setTextSize(ASTRA_FONT_SMALL);
 
             // Troll timing info
             if (trollN > 0) {

@@ -394,7 +394,7 @@ void resetClientScreen(const char *title) {
     tft.fillScreen(bruceConfig.bgColor);
     tft.drawRect(0, 0, tftWidth, tftHeight, bruceConfig.priColor);
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     tft.setCursor(TERMINAL_PAD_X, TERMINAL_PAD_Y);
     String context = getQueuedPromptContext();
     if (!context.isEmpty()) {
@@ -511,7 +511,7 @@ void ensureCursorOnFreshLine() {
 }
 
 void redrawCurrentCommandLine() {
-    int lineHeight = max(1, FP * LH);
+    int lineHeight = max(1, ASTRA_FONT_SMALL * LH);
     int lineY = tft.getCursorY();
     if (lineY < TERMINAL_PAD_Y) lineY = TERMINAL_PAD_Y;
 
@@ -589,7 +589,7 @@ bool tryAppendLiveInputSuffixFromRemoteLine(const String &line, bool renderUpdat
 }
 
 void renderPrompt(bool forceNewLine) {
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     if (commandBuffer == "> ") {
         String promptPrefix = getQueuedPromptPrefix();
         if (!promptPrefix.isEmpty()) commandBuffer = promptPrefix;
@@ -644,14 +644,14 @@ void captureShellPromptLine(const String &line) {
 
 int getTerminalCols() {
     int usableWidth = tftWidth - (TERMINAL_PAD_X * 2);
-    int colWidth = max(1, FP * LW);
+    int colWidth = max(1, ASTRA_FONT_SMALL * LW);
     return max(20, usableWidth / colWidth);
 }
 
 int getTerminalRows() {
     int usableHeight = tftHeight - (TERMINAL_PAD_Y * 2);
-    if (!getQueuedPromptContext().isEmpty()) usableHeight -= FP * LH;
-    int rowHeight = max(1, FP * LH);
+    if (!getQueuedPromptContext().isEmpty()) usableHeight -= ASTRA_FONT_SMALL * LH;
+    int rowHeight = max(1, ASTRA_FONT_SMALL * LH);
     return max(4, usableHeight / rowHeight);
 }
 
@@ -659,12 +659,12 @@ void renderVisibleText(const String &title, const String &text, bool appendNewli
     ensureCursorOnFreshLine();
     tft.setTextColor(TFT_WHITE, bruceConfig.bgColor);
     for (size_t i = 0; i < text.length(); ++i) {
-        if (tft.getCursorX() > tftWidth - TERMINAL_PAD_X - (FP * LW)) {
+        if (tft.getCursorX() > tftWidth - TERMINAL_PAD_X - (ASTRA_FONT_SMALL * LW)) {
             tft.println();
             tft.setCursor(TERMINAL_PAD_X, tft.getCursorY());
         }
         tft.write(text[i]);
-        if (tft.getCursorY() > tftHeight - TERMINAL_PAD_Y - (FP * LH)) {
+        if (tft.getCursorY() > tftHeight - TERMINAL_PAD_Y - (ASTRA_FONT_SMALL * LH)) {
             resetClientScreen(title.c_str());
             renderPrompt();
             tft.setTextColor(TFT_WHITE, bruceConfig.bgColor);
@@ -1166,7 +1166,7 @@ void runSessionUiLoop(const String &title) {
                 appendSessionCommandToLog(message);
                 resetClientScreen(title.c_str());
             } else {
-                tft.setTextSize(FP);
+                tft.setTextSize(ASTRA_FONT_SMALL);
                 appendSessionCommandToLog(message);
                 queueSessionCommand(message + "\r");
                 tft.setTextColor(TFT_GREEN, bruceConfig.bgColor);

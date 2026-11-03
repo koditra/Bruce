@@ -1,6 +1,7 @@
 #include "OthersMenu.h"
 
 #include "core/display.h"
+#include "core/sd_functions.h"
 #include "core/utils.h"
 #include "modules/badusb_ble/ducky_typer.h"
 #include "modules/bjs_interpreter/interpreter.h"
@@ -10,12 +11,12 @@
 #include "modules/others/qrcode_menu.h"
 #include "modules/others/tururururu.h"
 #include "modules/others/u2f.h"
+#include "core/menu_items/FileMenu.h"
 // Removed: #include "modules/others/timer.h"
 
 void OthersMenu::optionsMenu() {
     options = {
         {"QRCodes",      qrcode_menu                  },
-        {"Megalodon",    shark_setup                  },
 
 #if defined(MIC_SPM1423) || defined(MIC_INMP441)
         {"Microphone",   [this]() { micMenu(); }      }, //@deveclipse

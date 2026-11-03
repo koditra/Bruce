@@ -51,7 +51,7 @@ public:
 #ifdef HAS_RGB_LED
     // Led
     int ledBright = 50;
-    uint32_t ledColor = 0x960064;
+    uint32_t ledColor = 0xFF9900;
     int ledBlinkEnabled = 1;
     int ledEffect = 0;
     int ledEffectSpeed = 5;
@@ -61,7 +61,7 @@ public:
     // Wifi
     Credential webUI = {"admin", "bruce"};
     std::vector<String> webUISessions = {}; // FIFO queue of session tokens
-    WiFiCredential wifiAp = {"BruceNet", "brucenet"};
+    WiFiCredential wifiAp = {"ASTRANet", "astranet"};
     std::map<String, String> wifi = {};
     std::set<String> evilWifiNames = {};
     String wifiMAC = ""; //@IncursioHack
@@ -94,9 +94,9 @@ public:
     std::vector<String> disabledMenus = {};
 
     std::vector<QrCodeEntry> qrCodes = {
-        {"Bruce AP",   "WIFI:T:WPA;S:BruceNet;P:brucenet;;"},
-        {"Bruce Wiki", "https://github.com/pr3y/Bruce/wiki"},
-        {"Bruce Site", "https://bruce.computer"            },
+        {"ASTRA AP",   "WIFI:T:WPA;S:ASTRANet;P:astranet;;"},
+        {"Upstream Wiki", "https://github.com/pr3y/Bruce/wiki"},
+        {"Upstream Site", "https://bruce.computer"            },
         {"Rickroll",   "https://youtu.be/dQw4w9WgXcQ"      }
     };
 

@@ -4,6 +4,9 @@
 #include <Keyboard.h>
 #include <Wire.h>
 #include <interface.h>
+#if defined(USE_M5_UNIFIED_AUDIO)
+#include <M5Unified.h>
+#endif
 
 // Cardputer and 1.1 keyboard
 Keyboard_Class Keyboard;
@@ -82,6 +85,23 @@ inline void mapRawKeyToPhysical(uint8_t keyvalue, uint8_t &row, uint8_t &col) {
 ** Description:   initial setup for the device
 ***************************************************************************************/
 void _setup_gpio() {
+#if defined(USE_M5_UNIFIED_AUDIO)
+    // Initialize M5Unified before Bruce's TFT and keyboard setup so shared buses are
+    // configured first rather than being re-initialized after the display is active.
+    auto cfg = M5.config();
+    M5.begin(cfg);
+
+    auto spk_cfg = M5.Speaker.config();
+    spk_cfg.sample_rate = 96000;
+    spk_cfg.task_pinned_core = APP_CPU_NUM;
+    spk_cfg.dma_buf_count = 8;
+    spk_cfg.dma_buf_len = 256;
+    spk_cfg.task_priority = 3;
+    M5.Speaker.config(spk_cfg);
+    if (!M5.Speaker.begin()) Serial.println("ERROR: M5Unified Speaker.begin() failed");
+    else Serial.println("INFO: M5Unified speaker initialized before display setup");
+#endif
+
     //    Keyboard.begin();
     pinMode(0, INPUT);
     pinMode(5, OUTPUT);

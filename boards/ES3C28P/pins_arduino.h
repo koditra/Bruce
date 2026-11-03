@@ -128,7 +128,7 @@ static const uint8_t MISO = SPI_MISO_PIN;
 // =============================================
 // Font Sizes
 // =============================================
-#define FP 1
+#define ASTRA_FONT_SMALL 1
 #define FM 2
 #define FG 3
 

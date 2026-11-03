@@ -96,7 +96,7 @@ void HostInfo::setup(const Host &host) {
 
     // Initialize display
     drawMainBorder();
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
 
     ScrollableTextArea area = ScrollableTextArea("HOST INFO");
 

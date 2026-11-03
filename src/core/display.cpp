@@ -4,6 +4,9 @@
 #include "mykeyboard.h"
 #include "settings.h" //for timeStr
 #include "utils.h"
+#if defined(ASTRA_IDLE_ANIMATION)
+#include "astra_sleep_caption.h"
+#endif
 #include <JPEGDecoder.h>
 #include <interface.h> //for charging ischarging to print charging indicator
 #include <memory>
@@ -130,9 +133,69 @@ bool wakeUpScreen() {
     return false;
 }
 
+#if defined(ASTRA_IDLE_ANIMATION)
+static void drawSleepCaption(int x, int y, uint16_t color) {
+    tft.drawXBitmap(x, y, ASTRA_SLEEP_CAPTION, ASTRA_SLEEP_CAPTION_WIDTH, ASTRA_SLEEP_CAPTION_HEIGHT, color);
+}
+
+void drawIdleAnimationFrame(bool firstFrame) {
+    static uint32_t lastFrame = 0;
+    static uint8_t breathPhase = 0;
+    static int previousZX[3] = {};
+    static int previousZY[3] = {};
+    const uint32_t now = millis();
+    if (!firstFrame && now - lastFrame < 700) return;
+    lastFrame = now;
+    breathPhase = (breathPhase + 1) % 4;
+
+    const int centerX = tftWidth / 2;
+    const int headY = tftHeight / 2;
+    const int bodyY = headY + 31;
+    const uint16_t elephant = bruceConfig.priColor;
+    const uint16_t ink = TFT_BLACK;
+
+    if (firstFrame) {
+        tft.fillScreen(TFT_BLACK);
+        drawSleepCaption(centerX - ASTRA_SLEEP_CAPTION_WIDTH / 2, 12, bruceConfig.priColor);
+        tft.fillEllipse(centerX + 2, bodyY, 34, 20, elephant);
+        tft.fillEllipse(centerX - 24, headY, 12, 17, elephant);
+        tft.fillEllipse(centerX + 24, headY, 12, 17, elephant);
+        tft.fillEllipse(centerX, headY, 23, 21, elephant);
+        tft.drawWideLine(centerX - 10, headY - 1, centerX - 5, headY + 1, 2, ink);
+        tft.drawWideLine(centerX + 4, headY + 1, centerX + 9, headY - 1, 2, ink);
+        tft.fillEllipse(centerX - 22, bodyY + 12, 9, 5, elephant);
+        tft.fillEllipse(centerX + 21, bodyY + 12, 9, 5, elephant);
+        tft.drawWideLine(centerX + 1, headY + 8, centerX + 1, headY + 14, 9, elephant);
+        tft.drawWideLine(centerX + 1, headY + 14, centerX + 4, headY + 19, 8, elephant);
+        tft.drawWideLine(centerX + 4, headY + 19, centerX + 8, headY + 22, 7, elephant);
+        tft.drawWideLine(centerX + 8, headY + 22, centerX + 9, headY + 27, 6, elephant);
+        tft.drawWideLine(centerX + 9, headY + 27, centerX + 5, headY + 29, 5, elephant);
+        tft.drawWideLine(centerX + 5, headY + 29, centerX + 1, headY + 27, 4, elephant);
+        tft.fillCircle(centerX + 1, headY + 14, 4, elephant);
+        tft.fillCircle(centerX + 4, headY + 19, 4, elephant);
+        tft.fillCircle(centerX + 8, headY + 22, 3, elephant);
+    } else {
+        for (int i = 0; i < 3; i++) {
+            tft.fillRect(previousZX[i] - 2, previousZY[i] - 2, 11, 11, TFT_BLACK);
+        }
+    }
+
+    for (int i = 0; i < 3; i++) {
+        const int zX = centerX + 45 + i * 11;
+        const int zY = headY - 10 - i * 11 - breathPhase * 2;
+        const int zSize = 5 + i;
+        tft.drawWideLine(zX, zY, zX + zSize, zY, 2, bruceConfig.priColor);
+        tft.drawWideLine(zX + zSize, zY, zX, zY + zSize, 2, bruceConfig.priColor);
+        tft.drawWideLine(zX, zY + zSize, zX + zSize, zY + zSize, 2, bruceConfig.priColor);
+        previousZX[i] = zX;
+        previousZY[i] = zY;
+    }
+}
+#endif
+
 /***************************************************************************************
 ** Function name: wrapText
-** Description:   Wrap text to fit within a maximum width, returning vector of lines
+** Description: Wrap text to fit within a maximum width, returning vector of lines
 ***************************************************************************************/
 std::vector<String> wrapText(const String &text, int maxCharsPerLine) {
     std::vector<String> lines;
@@ -175,7 +238,7 @@ void displayRedStripe(const String &text, uint16_t fgcolor, uint16_t bgcolor) {
 
     // Calculate max chars per line based on font size
     int maxCharsFM = (tftWidth - 20) / (LW * FM);
-    int maxCharsFP = (tftWidth - 20) / (LW * FP);
+    int maxCharsFP = (tftWidth - 20) / (LW * ASTRA_FONT_SMALL);
 
     // Determine if we need to wrap the text
     std::vector<String> wrappedLines;
@@ -186,8 +249,8 @@ void displayRedStripe(const String &text, uint16_t fgcolor, uint16_t bgcolor) {
         size = FM;
         wrappedLines = wrapText(text, maxCharsFM);
     } else {
-        // Text needs FP font or larger
-        size = FP;
+        // Text needs ASTRA_FONT_SMALL font or larger
+        size = ASTRA_FONT_SMALL;
         wrappedLines = wrapText(text, maxCharsFP);
     }
 
@@ -213,10 +276,10 @@ void drawButton(
     if (inverted) {
         tft.fillRoundRect(x, y, w, h, 5, color);
     } else {
-        tft.fillRoundRect(x, y, w, h, 5, TFT_BLACK);
-        tft.drawRoundRect(x, y, w, h, 5, color);
+        tft.fillRoundRect(x, y, w, h, 5, ASTRA_PANEL_COLOR);
+        tft.drawRoundRect(x, y, w, h, 5, ASTRA_PANEL_BORDER_COLOR);
     }
-    tft.setTextColor(inverted ? TFT_BLACK : color);
+    tft.setTextColor(inverted ? bruceConfig.bgColor : color);
     tft.drawString(text, x + w / 2, y + h);
 }
 
@@ -231,6 +294,11 @@ int8_t displayMessage(
     tft.setTextColor(color);
     tft.setTextSize(FM);
     tft.setTextDatum(TC_DATUM);
+
+    const int panelY = tftHeight / 2 - 48;
+    tft.fillRoundRect(8, panelY, tftWidth - 16, tftHeight - panelY - 5, 10, ASTRA_PANEL_COLOR);
+    tft.drawRoundRect(8, panelY, tftWidth - 16, tftHeight - panelY - 5, 10, ASTRA_PANEL_BORDER_COLOR);
+    tft.fillRoundRect(tftWidth / 2 - 18, panelY, 36, 3, 1, bruceConfig.priColor);
 
     // Handle newline characters in message
     String msg = String(message);
@@ -443,7 +511,7 @@ void padprintln(const String &s, int16_t padx) {
 
     String buff;
     size_t start = 0;
-    int _maxCharsInLine = (tftWidth - (padx + 1) * BORDER_PAD_X) / (FP * LW);
+    int _maxCharsInLine = (tftWidth - (padx + 1) * BORDER_PAD_X) / (ASTRA_FONT_SMALL * LW);
 
     // automatically split into multiple lines
     while (!(buff = s.substring(start, start + _maxCharsInLine)).isEmpty()) {
@@ -461,7 +529,7 @@ void padprintln(const char str[], int16_t padx) {
 
     String buff;
     size_t start = 0;
-    int _maxCharsInLine = (tftWidth - (padx + 1) * BORDER_PAD_X) / (FP * LW);
+    int _maxCharsInLine = (tftWidth - (padx + 1) * BORDER_PAD_X) / (ASTRA_FONT_SMALL * LW);
 
     // automatically split into multiple lines
     while (!(buff = String(str).substring(start, start + _maxCharsInLine)).isEmpty()) {
@@ -544,6 +612,11 @@ int loopOptions(
     Opt_Coord coord;
     bool redraw = true;
     bool exit = false;
+#if defined(ASTRA_IDLE_ANIMATION)
+    bool idleAnimationActive = false;
+    bool idleAnimationExpired = false;
+    uint32_t idleAnimationStartedAt = 0;
+#endif
     int menuSize = options.size();
     int devModeCounter = 0;
     static unsigned long _clock_bat_timer = millis();
@@ -571,11 +644,76 @@ int loopOptions(
                 bruceConfig.setDevMode(true);
                 displayInfo("Dev Mode Enabled", true);
             }
-            if (millis() - _clock_bat_timer > 30000) {
+            if (!isScreenOff && millis() - _clock_bat_timer > 30000) {
                 _clock_bat_timer = millis();
                 drawStatusBar(); // update clock and battery status each 30s
             }
         }
+
+#if defined(ASTRA_IDLE_ANIMATION)
+        if (menuType == MENU_TYPE_MAIN && isScreenOff) {
+            const bool firstIdleFrame = !idleAnimationActive;
+            if (firstIdleFrame) {
+                idleAnimationStartedAt = millis();
+                idleAnimationExpired = false;
+            }
+            idleAnimationActive = true;
+            if (check(AnyKeyPress)) {
+                NextPress = false;
+                PrevPress = false;
+                UpPress = false;
+                DownPress = false;
+                SelPress = false;
+                EscPress = false;
+                NextPagePress = false;
+                PrevPagePress = false;
+                SerialCmdPress = false;
+                forceMenuOption = -1;
+#ifdef HAS_KEYBOARD
+                _getKeyPress();
+#endif
+#ifdef HAS_ENCODER
+                drainRotarySteps();
+#endif
+                wakeUpScreen();
+                idleAnimationActive = false;
+                idleAnimationExpired = false;
+                redraw = true;
+                continue;
+            }
+            if (!idleAnimationExpired && millis() - idleAnimationStartedAt >= 60000) {
+                tft.fillScreen(TFT_BLACK);
+                turnOffDisplay();
+                idleAnimationExpired = true;
+            } else if (!idleAnimationExpired) {
+                drawIdleAnimationFrame(firstIdleFrame);
+            }
+            vTaskDelay(pdMS_TO_TICKS(40));
+            continue;
+        }
+
+        if (menuType == MENU_TYPE_MAIN && idleAnimationActive) {
+            NextPress = false;
+            PrevPress = false;
+            UpPress = false;
+            DownPress = false;
+            SelPress = false;
+            EscPress = false;
+            NextPagePress = false;
+            PrevPagePress = false;
+            SerialCmdPress = false;
+            forceMenuOption = -1;
+#ifdef HAS_KEYBOARD
+            _getKeyPress();
+#endif
+#ifdef HAS_ENCODER
+            drainRotarySteps();
+#endif
+            idleAnimationActive = false;
+            idleAnimationExpired = false;
+            redraw = true;
+        }
+#endif
 
         if (redraw) {
             menuOptionType = menuType; // updates menutype to the remote controller
@@ -730,7 +868,8 @@ int loopOptions(
             }
             if (chosen >= options.size() || !options[chosen].enabled) continue;
             Serial.println("Selected: " + String(options[chosen].label));
-            options[chosen].operation();
+            auto operation = options[chosen].operation;
+            operation();
             break;
         }
         // interpreter_start -> running the interpreter
@@ -774,24 +913,11 @@ Opt_Coord drawOptions(
     // Uncomment to update the statusBar (causes flickering)
     // drawStatusBar();
 
-    int32_t optionsTopY = tftHeight / 2 - menuSize * (FM * 8 + 4) / 2 - 5;
     tft.drawPixel(0, 0, bruceConfig.bgColor);
-    if (firstRender) {
-        tft.fillRoundRect(
-            tftWidth * 0.10, optionsTopY, tftWidth * 0.8, (FM * 8 + 4) * menuSize + 10, 5, bgcolor
-        );
-        tft.drawRoundRect(
-            tftWidth * 0.10,
-            tftHeight / 2 - menuSize * (FM * 8 + 4) / 2 - 5,
-            tftWidth * 0.8,
-            (FM * 8 + 4) * menuSize + 10,
-            5,
-            fgcolor
-        );
-    }
+    if (firstRender) tft.fillRect(0, 27, tftWidth, tftHeight - 27, bgcolor);
     tft.setTextColor(fgcolor, bgcolor);
     tft.setTextSize(FM);
-    tft.setCursor(tftWidth * 0.10 + 5, tftHeight / 2 - menuSize * (FM * 8 + 4) / 2);
+    tft.setCursor(14, tftHeight / 2 - menuSize * (FM * 8 + 4) / 2);
 
     int i = 0;
     int init = 0;
@@ -810,36 +936,27 @@ Opt_Coord drawOptions(
             int16_t cursorY = tft.getCursorY();
             // Erase previously highlited element,
             if (i == last_index) {
-                tft.fillRoundRect(
-                    tftWidth * 0.10 + 2, cursorY + 2, tftWidth * 0.8 - 4, FM * LH + 2, 3, bruceConfig.bgColor
-                );
+                tft.fillRect(8, cursorY + 2, tftWidth - 16, FM * LH + 2, bgcolor);
             }
-            // Draw selection highlight bar
-            if (i == index) {
-                tft.fillRoundRect(
-                    tftWidth * 0.10 + 2, cursorY + 2, tftWidth * 0.8 - 4, FM * LH + 2, 3, bruceConfig.priColor
-                );
-            }
-
-            if (options[i].selected) tft.setTextColor(selcolor, bgcolor); // if selected, change Text color
+            if (options[i].selected) tft.setTextColor(selcolor, bgcolor);
             else tft.setTextColor(fgcolor, bgcolor);
             if (!options[i].enabled) tft.setTextColor(TFT_DARKGREY, bgcolor);
 
             String text = "";
             if (i == index) {
-                text += ">";
-                coord.x = tftWidth * 0.10 + 5 + FM * LW;
+                coord.x = 14 + 2 * FM * LW;
                 coord.y = tft.getCursorY() + 4;
-                coord.size = (tftWidth * 0.8 - 10) / (LW * FM) - 1;
-                coord.fgcolor = fgcolor;
+                coord.size = (tftWidth - 28) / (LW * FM) - 3;
+                coord.fgcolor = bruceConfig.priColor;
                 coord.bgcolor = bgcolor;
-            } else text += " ";
+                text += "> ";
+            } else text += "  ";
             text += String(options[i].label) + "              ";
-            tft.setCursor(tftWidth * 0.10 + 5, tft.getCursorY() + 4);
+            tft.setCursor(14, tft.getCursorY() + 4);
 
-            // Draw text with appropriate colors for selection
-            if (i == index) { tft.setTextColor(bgcolor, bruceConfig.priColor); }
-            tft.println(text.substring(0, (tftWidth * 0.8 - 10) / (LW * FM) - 1));
+            // Highlight the selected option with saffron text, without a filled bar.
+            if (i == index) tft.setTextColor(bruceConfig.priColor, bgcolor);
+            tft.println(text.substring(0, (tftWidth - 28) / (LW * FM) - 1));
 
             // Reset text color for next item
             tft.setTextColor(fgcolor, bgcolor);
@@ -861,57 +978,52 @@ Opt_Coord drawOptions(
 ** Description:   Função para desenhar e mostrar as opçoes de contexto
 ***************************************************************************************/
 void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
+    tft.fillRect(0, 27, tftWidth, tftHeight - 27, bruceConfig.bgColor);
     drawStatusBar();
     int menuSize = options.size();
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.setTextSize(FP);
-    tft.drawPixel(0, 0, 0);
-    tft.fillRect(6, 30, tftWidth - 12, 8 * FP, bruceConfig.bgColor);
-    tft.drawString(title, 12, 30);
+    tft.setTextSize(1);
+    String titleText(title);
+    if (titleText.length() > 22) titleText = titleText.substring(0, 20) + "..";
+    tft.drawString(titleText, 12, 32);
+    tft.drawFastHLine(12, 45, 24, bruceConfig.priColor);
 
-    // middle of the drawing area
-    int middle = 25 /*status*/ + (tftHeight - 30 /*status + bottom margin*/) / 2;
-    // drawCentreString uses TC_DATUM, so we need to adjust the Y position
-    // 42 ensures that title isnt touched( 30 + 8 (LH) + 4(Margin))
-    int middle_up = middle - (tftHeight - 42) / 3 - FM * LH / 2 + 4;
-    int middle_down = middle + (tftHeight - 42) / 3 - FM * LH / 2;
+    const int previousY = tftHeight * 38 / 100;
+    const int selectedCenterY = tftHeight * 56 / 100;
+    const int nextY = tftHeight * 72 / 100;
 
-    tft.setTextSize(FM);
-#if defined(HAS_TOUCH)
-    tft.drawCentreString("/\\", tftWidth / 2, middle_up - (FM * LH + 6), 1);
-#endif
-    // Previous item
     int firstIndex = index - 1 >= 0 ? index - 1 : menuSize - 1;
-    const char *firstOption = options[firstIndex].label.c_str();
-    tft.setTextColor(options[firstIndex].enabled ? bruceConfig.secColor : TFT_DARKGREY);
-    tft.fillRect(6, middle_up, tftWidth - 12, 8 * FM, bruceConfig.bgColor);
-    tft.drawCentreString(firstOption, tftWidth / 2, middle_up, SMOOTH_FONT);
+    String firstOption = options[firstIndex].label;
+    if (firstOption.length() > 34) firstOption = firstOption.substring(0, 32) + "..";
+    tft.setTextSize(1);
+    tft.setTextColor(options[firstIndex].enabled ? bruceConfig.secColor : TFT_DARKGREY, bruceConfig.bgColor);
+    tft.drawCentreString(firstOption, tftWidth / 2, previousY, SMOOTH_FONT);
 
-    // Selected item
-    int selectedTextSize = options[index].label.length() <= tftWidth / (LW * FG) - 1 ? FG : FM;
+    int selectedTextSize = FM;
+    const int mediumLabelLimit = (tftWidth - 40) / (LW * FM);
+    if (options[index].label.length() > mediumLabelLimit) selectedTextSize = ASTRA_FONT_SMALL;
+    String selectedOption = options[index].label;
+    const int selectedLabelLimit = (tftWidth - 40) / (LW * selectedTextSize);
+    if (selectedOption.length() > selectedLabelLimit) {
+        selectedOption = selectedOption.substring(0, selectedLabelLimit - 2) + "..";
+    }
+    const uint16_t highlightColor = options[index].enabled ? bruceConfig.priColor : TFT_DARKGREY;
     tft.setTextSize(selectedTextSize);
-    tft.setTextColor(options[index].enabled ? bruceConfig.priColor : TFT_DARKGREY);
-    tft.fillRect(6, middle - FG * LH / 2 - 1, tftWidth - 12, FG * LH + 5, bruceConfig.bgColor);
-    tft.drawCentreString(options[index].label, tftWidth / 2, middle - selectedTextSize * LH / 2, SMOOTH_FONT);
-    tft.drawFastHLine(
-        tftWidth / 2 - strlen(options[index].label.c_str()) * selectedTextSize * LW / 2,
-        middle + selectedTextSize * LH / 2 + 1,
-        strlen(options[index].label.c_str()) * selectedTextSize * LW,
-        bruceConfig.priColor
+    tft.setTextColor(highlightColor, bruceConfig.bgColor);
+    tft.drawCentreString(
+        selectedOption, tftWidth / 2, selectedCenterY - selectedTextSize * LH / 2, SMOOTH_FONT
     );
-    // Next Item
-    int thirdIndex = index + 1 < menuSize ? index + 1 : 0;
-    const char *thirdOption = options[thirdIndex].label.c_str();
-    tft.setTextSize(FM);
-    tft.setTextColor(options[thirdIndex].enabled ? bruceConfig.secColor : TFT_DARKGREY);
-    tft.fillRect(6, middle_down, tftWidth - 12, 8 * FM, bruceConfig.bgColor);
-    tft.drawCentreString(thirdOption, tftWidth / 2, middle_down, SMOOTH_FONT);
 
-    tft.fillRect(tftWidth - 5, 0, 5, tftHeight, bruceConfig.bgColor);
-    tft.fillRect(tftWidth - 5, index * tftHeight / menuSize, 5, tftHeight / menuSize, bruceConfig.priColor);
+    int thirdIndex = index + 1 < menuSize ? index + 1 : 0;
+    String thirdOption = options[thirdIndex].label;
+    if (thirdOption.length() > 34) thirdOption = thirdOption.substring(0, 32) + "..";
+    tft.setTextSize(1);
+    tft.setTextColor(
+        options[thirdIndex].enabled ? bruceConfig.secColor : TFT_DARKGREY, bruceConfig.bgColor
+    );
+    tft.drawCentreString(thirdOption, tftWidth / 2, nextY, SMOOTH_FONT);
 
 #if defined(HAS_TOUCH)
-    tft.drawCentreString("\\/", tftWidth / 2, middle_down + (FM * LH + 6), 1);
     tft.setTextColor(getColorVariation(bruceConfig.priColor), bruceConfig.bgColor);
     tft.drawString("[ x ]", 7, 7, 1);
     TouchFooter();
@@ -919,12 +1031,14 @@ void drawSubmenu(int index, std::vector<Option> &options, const char *title) {
 }
 
 void drawStatusBar() {
+    tft.fillRect(7, 7, tftWidth - 14, 17, bruceConfig.bgColor);
     uint8_t bat = getBattery();
     if (bat > 0) drawBatteryStatus(bat);
 
     if (bruceConfig.theme.border) {
-        tft.drawRoundRect(5, 5, tftWidth - 10, tftHeight - 10, 5, bruceConfig.priColor);
-        tft.drawLine(5, 25, tftWidth - 6, 25, bruceConfig.priColor);
+        tft.drawRoundRect(5, 5, tftWidth - 10, tftHeight - 10, 8, ASTRA_PANEL_BORDER_COLOR);
+        tft.drawLine(5, 25, tftWidth - 6, 25, ASTRA_PANEL_BORDER_COLOR);
+        tft.drawFastHLine(12, 25, 28, bruceConfig.priColor);
     }
 
     if (clock_set) {
@@ -936,71 +1050,20 @@ void drawStatusBar() {
         updateTimeStr(rtc.getTimeStruct());
 #endif
         tft.print(timeStr);
-    } else {
-        setTftDisplay(12, 12, bruceConfig.priColor, 1, bruceConfig.bgColor);
-        tft.print("BRUCE " + String(BRUCE_VERSION));
     }
 
-    int iconCount = 0;
-    bool showSD = sdcardMounted;
-    bool showGPS = gpsConnected;
-    bool showWifi = (WiFi.getMode() != 0);
-    bool showWeb = isWebUIActive;
-    bool showBLE = BLEConnected;
-    bool showWG = isConnectedWireguard;
-    if (showSD) iconCount++;
-    if (showGPS) iconCount++;
-    if (showWifi) iconCount++;
-    if (showWeb) iconCount++;
-    if (showBLE) iconCount++;
-    if (showWG) iconCount++;
-
-    if (iconCount > 0) {
-        const int IW = 16;
-        const int IH = 16;
-        const int GAP = 6;
-        int totalW = iconCount * IW + (iconCount - 1) * GAP;
-        int sx = (tftWidth - totalW) / 2;
-        int iy = 7;
-        int idx = 0;
-
-        if (showSD) {
-            int x = sx + idx * (IW + GAP);
-            tft.fillRect(x, iy, IW, IH, bruceConfig.bgColor);
-            drawSdSmall(x, iy);
-            idx++;
-        }
-        if (showGPS) {
-            int x = sx + idx * (IW + GAP);
-            tft.fillRect(x, iy, IW, IH, bruceConfig.bgColor);
-            drawGpsSmall(x, iy);
-            idx++;
-        }
-        if (showWifi) {
-            int x = sx + idx * (IW + GAP);
-            tft.fillRect(x, iy, IW, IH, bruceConfig.bgColor);
-            drawWifiSmall(x, iy);
-            idx++;
-        }
-        if (showWeb) {
-            int x = sx + idx * (IW + GAP);
-            tft.fillRect(x, iy, IW, IH, bruceConfig.bgColor);
-            drawWebUISmall(x, iy);
-            idx++;
-        }
-        if (showBLE) {
-            int x = sx + idx * (IW + GAP);
-            tft.fillRect(x, iy, IW, IH, bruceConfig.bgColor);
-            drawBLESmall(x, iy);
-            idx++;
-        }
-        if (showWG) {
-            int x = sx + idx * (IW + GAP);
-            tft.fillRect(x, iy, IW, IH, bruceConfig.bgColor);
-            drawWireguardStatus(x, iy);
-            idx++;
-        }
+    const int statusY = 12;
+    tft.setTextSize(1);
+    tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
+    if (IRMenuActive && BLEConnected) {
+        tft.drawString("IR", tftWidth - 137, statusY, 1);
+        tft.drawString("BLE", tftWidth - 115, statusY, 1);
+    } else if (IRMenuActive) {
+        tft.drawString("IR", tftWidth - 137, statusY, 1);
+    } else if (BLEConnected) {
+        tft.drawString("BLE", tftWidth - 115, statusY, 1);
     }
+
 }
 
 void drawMainBorder(bool clear) {
@@ -1032,21 +1095,22 @@ void printTitle(const String &title) {
 
     // Scale down title font if it doesn't fit the screen width
     int titleSize = FM;
-    while (titleSize > FP && (int)(t.length() * titleSize * LW) > tftWidth - 2 * BORDER_PAD_X) {
+    while (titleSize > ASTRA_FONT_SMALL && (int)(t.length() * titleSize * LW) > tftWidth - 2 * BORDER_PAD_X) {
         titleSize--;
     }
 
     tft.setTextSize(titleSize);
     tft.setCursor((tftWidth - (t.length() * titleSize * LW)) / 2, BORDER_PAD_Y);
     tft.println(t);
+    tft.drawFastHLine(tftWidth / 2 - 18, BORDER_PAD_Y + titleSize * LH + 1, 36, bruceConfig.priColor);
 
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
 }
 
 void printSubtitle(const String &subtitle, bool withLine) {
-    int16_t cursorX = (tftWidth - (subtitle.length() * FP * LW)) / 2;
+    int16_t cursorX = (tftWidth - (subtitle.length() * ASTRA_FONT_SMALL * LW)) / 2;
     tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
 
     tft.setCursor(cursorX, BORDER_PAD_Y + FM * LH);
     tft.println(subtitle);
@@ -1061,14 +1125,14 @@ void printSubtitle(const String &subtitle, bool withLine) {
 }
 
 void printFootnote(const String &text) {
-    tft.setTextSize(FP);
-    tft.drawRightString(text, tftWidth - BORDER_PAD_X, tftHeight - BORDER_PAD_X - FP * LH, SMOOTH_FONT);
+    tft.setTextSize(ASTRA_FONT_SMALL);
+    tft.drawRightString(text, tftWidth - BORDER_PAD_X, tftHeight - BORDER_PAD_X - ASTRA_FONT_SMALL * LH, SMOOTH_FONT);
 }
 
 void printCenterFootnote(const String &text) {
-    tft.fillRect(10, tftHeight - BORDER_PAD_X - FP * LH, tftWidth - 20, FP * LH, bruceConfig.bgColor);
-    tft.setTextSize(FP);
-    tft.drawCentreString(text, tftWidth / 2, tftHeight - BORDER_PAD_X - FP * LH, SMOOTH_FONT);
+    tft.fillRect(10, tftHeight - BORDER_PAD_X - ASTRA_FONT_SMALL * LH, tftWidth - 20, ASTRA_FONT_SMALL * LH, bruceConfig.bgColor);
+    tft.setTextSize(ASTRA_FONT_SMALL);
+    tft.drawCentreString(text, tftWidth / 2, tftHeight - BORDER_PAD_X - ASTRA_FONT_SMALL * LH, SMOOTH_FONT);
 }
 
 void drawBatteryStatus(uint8_t bat) {
@@ -1081,7 +1145,7 @@ void drawBatteryStatus(uint8_t bat) {
     if (bat < 16) barcolor = color = TFT_RED;
 
     tft.drawRoundRect(tftWidth - 42, 7, 34, 17, 2, color);
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
     tft.fillRect(tftWidth - 85, 7, 42, 18, bruceConfig.bgColor);
     if (charging) {
         tft.setTextColor(bruceConfig.priColor, bruceConfig.bgColor);

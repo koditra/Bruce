@@ -5,7 +5,7 @@
 
 class BleMenu : public MenuItemInterface {
 public:
-    BleMenu() : MenuItemInterface("BLE") {}
+    BleMenu() : MenuItemInterface("Sandesh / BLE") {}
 
     void optionsMenu(void);
     void drawIcon(float scale);

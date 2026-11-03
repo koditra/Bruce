@@ -5,7 +5,7 @@
 
 class RFIDMenu : public MenuItemInterface {
 public:
-    RFIDMenu() : MenuItemInterface("RFID") {}
+    RFIDMenu() : MenuItemInterface("NFC / RFID") {}
 
     void optionsMenu(void);
     void drawIcon(float scale);

@@ -1,7 +1,7 @@
 #include "scrollableTextArea.h"
 #define _scrollBuffer tft
 ScrollableTextArea::ScrollableTextArea(const String &title)
-    : firstVisibleLine{0}, _redraw{true}, _title(title), _fontSize(FP), _startX(BORDER_PAD_X),
+    : firstVisibleLine{0}, _redraw{true}, _title(title), _fontSize(ASTRA_FONT_SMALL), _startX(BORDER_PAD_X),
       _startY(BORDER_PAD_Y), _width(tftWidth - 2 * BORDER_PAD_X),
       _height(tftHeight - 4 - BORDER_PAD_X - BORDER_PAD_Y) {
     drawMainBorder();
@@ -30,9 +30,15 @@ ScrollableTextArea::~ScrollableTextArea() {
 }
 
 void ScrollableTextArea::setup() {
-    _scrollBuffer.setTextColor(bruceConfig.priColor);
+    _scrollBuffer.fillRoundRect(
+        _startX - 4, _startY - 2, _width + 8, _height + 4, 8, ASTRA_PANEL_COLOR
+    );
+    _scrollBuffer.drawRoundRect(
+        _startX - 4, _startY - 2, _width + 8, _height + 4, 8, ASTRA_PANEL_BORDER_COLOR
+    );
+    _scrollBuffer.setTextColor(TFT_WHITE, ASTRA_PANEL_COLOR);
     _scrollBuffer.setTextSize(_fontSize);
-    _scrollBuffer.fillRect(_startX, _startY, _width, _height, bruceConfig.bgColor);
+    _scrollBuffer.fillRect(_startX, _startY, _width, _height, ASTRA_PANEL_COLOR);
 
     _maxCharactersPerLine = floor(_width / _scrollBuffer.textWidth("w", _fontSize));
     _pixelsPerLine = _scrollBuffer.fontHeight() + 2;
@@ -182,10 +188,10 @@ void ScrollableTextArea::addLine(const String &text) {
 void ScrollableTextArea::draw(bool force) {
     if (!_redraw && !force) return;
 
-    _scrollBuffer.fillRect(_startX, _startY, _width, _height, bruceConfig.bgColor);
-    _scrollBuffer.setTextColor(bruceConfig.priColor);
+    _scrollBuffer.fillRect(_startX, _startY, _width, _height, ASTRA_PANEL_COLOR);
+    _scrollBuffer.setTextColor(TFT_WHITE, ASTRA_PANEL_COLOR);
     uint8_t _fSize = tft.getTextSize();
-    tft.setTextSize(FP);
+    tft.setTextSize(ASTRA_FONT_SMALL);
 
     uint16_t yOffset = 0;
     size_t lines = 0;
