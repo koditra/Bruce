@@ -17,6 +17,7 @@
 
 #if defined(USE_M5_UNIFIED_AUDIO)
 #include <atomic>
+#include <cmath>
 
 class AudioOutputM5Speaker : public AudioOutput {
 public:
@@ -30,10 +31,20 @@ public:
 
     virtual bool begin(void) override { return true; }
 
+    virtual bool SetRate(int sampleRate) override {
+        const bool configured = AudioOutput::SetRate(sampleRate);
+        if (sampleRate > 0) {
+            constexpr float bassCutoffHz = 140.0f;
+            constexpr float twoPi = 6.28318530718f;
+            _bassFilterAlpha = 1.0f - expf(-twoPi * bassCutoffHz / sampleRate);
+        }
+        return configured;
+    }
+
     virtual bool ConsumeSample(int16_t sample[2]) override {
         if (_buffer_index < buf_size) {
-            _buffer[_index][_buffer_index] = sample[0];
-            _buffer[_index][_buffer_index + 1] = sample[1];
+            _buffer[_index][_buffer_index] = enhanceBass(sample[0], _bassLeft);
+            _buffer[_index][_buffer_index + 1] = enhanceBass(sample[1], _bassRight);
             _buffer_index += 2;
             return true;
         }
@@ -75,6 +86,19 @@ protected:
     std::atomic<bool> _busy[buf_count] = {{false}, {false}, {false}};
     size_t _buffer_index = 0;
     size_t _index = 0;
+    float _bassFilterAlpha = 0.02f;
+    float _bassLeft = 0.0f;
+    float _bassRight = 0.0f;
+
+    int16_t enhanceBass(int16_t sample, float &lowPass) const {
+        constexpr float bassGain = 0.4f;
+        const float input = sample;
+        lowPass += _bassFilterAlpha * (input - lowPass);
+        const float enhanced = input + bassGain * lowPass;
+        if (enhanced > 32767.0f) return 32767;
+        if (enhanced < -32768.0f) return -32768;
+        return static_cast<int16_t>(enhanced);
+    }
 
     static void bufferReleased(void *args, const void *data, uint8_t) {
         auto output = (AudioOutputM5Speaker *)args;

@@ -65,7 +65,7 @@ String extractFilename(const String &filepath) {
     String name = filepath.substring(lastSlash + 1);
     int dotInName = name.lastIndexOf('.');
     if (dotInName >= 0) name = name.substring(0, dotInName);
-    if (name == "Teri_Mitti") name = "Teri Mitti";
+    name.replace('_', ' ');
     return name;
 }
 

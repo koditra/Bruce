@@ -93,6 +93,7 @@ void _setup_gpio() {
 
     auto spk_cfg = M5.Speaker.config();
     spk_cfg.sample_rate = 96000;
+    spk_cfg.stereo = M5.getBoard() == m5::board_t::board_M5CardputerADV;
     spk_cfg.task_pinned_core = APP_CPU_NUM;
     spk_cfg.dma_buf_count = 8;
     spk_cfg.dma_buf_len = 256;

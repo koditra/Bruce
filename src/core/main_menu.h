@@ -11,6 +11,7 @@
 #include "menu_items/FMMenu.h"
 #include "menu_items/FileMenu.h"
 #include "menu_items/GpsMenu.h"
+#include "menu_items/IDMenu.h"
 #include "menu_items/IRMenu.h"
 #include "menu_items/LoRaMenu.h"
 #include "menu_items/MusicMenu.h"
@@ -29,6 +30,7 @@ public:
     ConfigMenu configMenu;
     FMMenu fmMenu;
     GpsMenu gpsMenu;
+    IDMenu idMenu;
     IRMenu irMenu;
     NRF24Menu nrf24Menu;
     OthersMenu othersMenu;

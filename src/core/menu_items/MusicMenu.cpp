@@ -11,8 +11,8 @@ void MusicMenu::optionsMenu() {
         return;
     }
 
-    if (LittleFS.exists("/music/Teri_Mitti.mp3")) {
-        musicPlayerUI(&LittleFS, "/music/Teri_Mitti.mp3");
+    if (LittleFS.exists("/music/Jaiye_Sajana.mp3")) {
+        musicPlayerUI(&LittleFS, "/music/Jaiye_Sajana.mp3");
         return;
     }
 

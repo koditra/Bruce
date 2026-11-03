@@ -20,6 +20,7 @@ MainMenu::MainMenu() {
 #if !defined(LITE_VERSION)
         &ethernetMenu,
 #endif
+        &idMenu,
         &gpsMenu,
         &fileMenu,
 #if !defined(LITE_VERSION) && !defined(DISABLE_INTERPRETER)
